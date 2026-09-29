@@ -1,0 +1,1080 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>滑車實驗</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Klee+One:wght@400;600&display=swap" rel="stylesheet">
+    
+    <style>
+        body { 
+            font-family: 'Klee One', 'PingFang TC', 'Microsoft JhengHei', cursive; 
+            background-color: #fdf8ef; 
+            color: #4a3b2c;
+            background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100' height='100' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+        }
+        .watermark { pointer-events: none; user-select: none; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-thumb { background: #d4c5b9; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #b8a391; }
+
+        .sketch-box {
+            background: #fffdfa;
+            border: 3px solid #5c4b3a;
+            border-radius: 2px 255px 3px 225px / 255px 5px 225px 3px;
+            box-shadow: 5px 5px 0px rgba(92, 75, 58, 0.15);
+        }
+        .sketch-panel {
+            background: #fdf6e9;
+            border: 2px dashed #a68a6d;
+            border-radius: 255px 15px 225px 15px/15px 225px 15px 255px;
+        }
+        .sketch-button {
+            border: 2px solid #5c4b3a;
+            border-radius: 255px 15px 225px 15px/15px 225px 15px 255px;
+            transition: all 0.2s;
+            box-shadow: 4px 4px 0px rgba(92, 75, 58, 0.2);
+        }
+        .sketch-button:active {
+            transform: translate(2px, 2px);
+            box-shadow: 2px 2px 0px rgba(92, 75, 58, 0.2);
+        }
+        .sketch-button:hover {
+            filter: brightness(1.05);
+        }
+        
+        .toggle-checkbox:checked {
+            right: 0;
+            border-color: #e76f51;
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #e76f51;
+        }
+        .toggle-checkbox {
+            right: 0;
+            z-index: 1;
+            border-color: #e2e8f0;
+            transition: all 0.3s;
+        }
+        .toggle-label {
+            width: 3rem;
+            height: 1.5rem;
+            background-color: #d4c5b9;
+            border-radius: 9999px;
+            transition: all 0.3s;
+        }
+
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+            opacity: 0.6;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useMemo } = React;
+
+        const G = 9.8; 
+        const MAX_DISTANCE = 2.0; 
+        const FLASH_INTERVAL = 0.2; // 閃光週期 Δt = 0.2 秒
+
+        // 使用 Web Audio API 合成音效
+        const playGroundHitSound = () => {
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContext) return;
+                const ctx = new AudioContext();
+                
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(140, ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(35, ctx.currentTime + 0.18);
+
+                gain.gain.setValueAtTime(0.7, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18);
+
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.18);
+            } catch (e) {
+                console.warn("Audio playback error:", e);
+            }
+        };
+
+        const playEndHitSound = () => {
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContext) return;
+                const ctx = new AudioContext();
+
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(650, ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(180, ctx.currentTime + 0.22);
+
+                gain.gain.setValueAtTime(0.6, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.22);
+
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.22);
+            } catch (e) {
+                console.warn("Audio playback error:", e);
+            }
+        };
+
+        // 計算相鄰區間加速度清單與其平均值的共用輔助函式
+        const computeIntervalAccelerations = (intervals) => {
+            if (!intervals || intervals.length < 2) return { aList: [], avgA: null };
+            const aList = [];
+            for (let i = 1; i < intervals.length; i++) {
+                const prev = intervals[i - 1];
+                const curr = intervals[i];
+                // 各區間加速度 a = Δv / Δt
+                const aVal = Number(((curr.v - prev.v) / FLASH_INTERVAL).toFixed(3));
+                aList.push({
+                    fromId: prev.id,
+                    toId: curr.id,
+                    a: aVal
+                });
+            }
+            // 各區間加速度分別計算後取平均值
+            const sumA = aList.reduce((acc, cur) => acc + cur.a, 0);
+            const avgA = Number((sumA / aList.length).toFixed(3));
+            return { aList, avgA };
+        };
+
+        const App = () => {
+            const [cartMass, setCartMass] = useState(1.0); 
+            const [hangingMass, setHangingMass] = useState(0.5); 
+            const [friction, setFriction] = useState(0.0); 
+            
+            const [isFixedTableHeight, setIsFixedTableHeight] = useState(false); 
+
+            const [status, setStatus] = useState('idle'); 
+            const [elapsedTime, setElapsedTime] = useState(0); 
+
+            const [showCalculations, setShowCalculations] = useState(false); 
+            const [showGraphs, setShowGraphs] = useState(false); 
+            const [showRecords, setShowRecords] = useState(false); 
+            const [records, setRecords] = useState([]); 
+            const [displayedCalculations, setDisplayedCalculations] = useState(null); 
+            
+            const [showForceAnalysis, setShowForceAnalysis] = useState(false); 
+
+            const [graphMode, setGraphMode] = useState('hidden'); 
+            const [graphRenderTime, setGraphRenderTime] = useState(0); 
+
+            const hasPlayedGroundHitRef = useRef(false);
+            const hasPlayedEndHitRef = useRef(false);
+
+            const netForce = (hangingMass * G) - (friction * cartMass * G);
+            const a1 = netForce > 0 ? netForce / (cartMass + hangingMass) : 0;
+            
+            const tableHeight = 1.0;
+            
+            const t1 = a1 > 0 ? Math.sqrt((2 * tableHeight) / a1) : Infinity;
+            const v1 = a1 > 0 ? a1 * t1 : 0;
+
+            const a2 = -friction * G;
+
+            const getMotionData = (t) => {
+                if (!isFixedTableHeight || t <= t1) {
+                    return {
+                        x: 0.5 * a1 * t * t,
+                        v: a1 * t,
+                        a: a1,
+                        phase: 1
+                    };
+                } else {
+                    const dt = t - t1;
+                    const v = v1 + a2 * dt;
+                    if (v <= 0) { 
+                        const stopTime = -v1 / a2;
+                        return {
+                            x: tableHeight + v1 * stopTime + 0.5 * a2 * stopTime * stopTime,
+                            v: 0,
+                            a: 0,
+                            phase: 2
+                        };
+                    }
+                    return {
+                        x: tableHeight + v1 * dt + 0.5 * a2 * dt * dt,
+                        v: v,
+                        a: a2,
+                        phase: 2
+                    };
+                }
+            };
+
+            const getFinalTime = () => {
+                if (a1 <= 0) return 0;
+                if (!isFixedTableHeight || MAX_DISTANCE <= tableHeight) {
+                    return Math.sqrt((2 * MAX_DISTANCE) / a1);
+                } else {
+                    const distLeft = MAX_DISTANCE - tableHeight;
+                    if (a2 === 0) {
+                        return t1 + (distLeft / v1); 
+                    } else {
+                        const vFinalSq = v1 * v1 + 2 * a2 * distLeft;
+                        if (vFinalSq < 0) {
+                            return t1 + (-v1 / a2);
+                        } else {
+                            const dt = (-v1 + Math.sqrt(vFinalSq)) / a2;
+                            return t1 + dt;
+                        }
+                    }
+                }
+            };
+
+            const finalTime = useMemo(getFinalTime, [a1, a2, t1, v1, isFixedTableHeight]);
+            
+            const currentMotion = getMotionData(elapsedTime);
+            const currentX = currentMotion.x;
+            const tension = currentMotion.phase === 1 ? cartMass * (a1 + friction * G) : 0;
+
+            useEffect(() => {
+                let frameId;
+                let startTime;
+
+                if (status === 'running') {
+                    startTime = performance.now() - elapsedTime * 1000;
+                    
+                    const tick = (now) => {
+                        const t = (now - startTime) / 1000;
+
+                        if (isFixedTableHeight && t1 < Infinity && t >= t1 && !hasPlayedGroundHitRef.current) {
+                            hasPlayedGroundHitRef.current = true;
+                            playGroundHitSound();
+                        }
+
+                        if (t >= finalTime) {
+                            setElapsedTime(finalTime);
+                            setStatus('finished');
+                            if (!hasPlayedEndHitRef.current) {
+                                hasPlayedEndHitRef.current = true;
+                                playEndHitSound();
+                            }
+                        } else {
+                            setElapsedTime(t);
+                            frameId = requestAnimationFrame(tick);
+                        }
+                    };
+                    frameId = requestAnimationFrame(tick);
+                }
+
+                return () => cancelAnimationFrame(frameId);
+            }, [status, finalTime, isFixedTableHeight, t1]); 
+
+            const handleStart = () => {
+                if (a1 <= 0) return;
+                if (status === 'finished' || elapsedTime >= finalTime) {
+                    setElapsedTime(0);
+                    hasPlayedGroundHitRef.current = false;
+                    hasPlayedEndHitRef.current = false;
+                }
+                if (showGraphs) {
+                    setGraphMode('showing');
+                }
+                setStatus('running');
+            };
+
+            const handlePause = () => setStatus('idle');
+            
+            const handleResetCart = () => {
+                setStatus('idle');
+                setElapsedTime(0);
+                hasPlayedGroundHitRef.current = false;
+                hasPlayedEndHitRef.current = false;
+                setGraphMode(showGraphs ? 'showing' : 'hidden');
+                setGraphRenderTime(0);
+                setShowCalculations(false);
+                setDisplayedCalculations(null);
+            };
+
+            const handleResetAll = () => {
+                setStatus('idle');
+                setElapsedTime(0);
+                hasPlayedGroundHitRef.current = false;
+                hasPlayedEndHitRef.current = false;
+                setCartMass(1.0);
+                setHangingMass(0.5);
+                setFriction(0.0);
+                setIsFixedTableHeight(false);
+                setRecords([]);
+                setShowGraphs(false);
+                setShowRecords(false);
+                setShowForceAnalysis(false);
+                setGraphMode('hidden');
+                setGraphRenderTime(0);
+                setShowCalculations(false);
+                setDisplayedCalculations(null);
+            };
+
+            const handleToggleGraphs = (checked) => {
+                setShowGraphs(checked);
+                if (checked) {
+                    if (status === 'running') {
+                        setGraphMode('showing');
+                    } else if (elapsedTime > 0) {
+                        setGraphMode('drawing');
+                        setGraphRenderTime(0);
+                    } else {
+                        setGraphMode('showing');
+                    }
+                } else {
+                    setGraphMode('hidden');
+                }
+            };
+
+            // 閃光攝影軌跡推導各區段
+            const flashCount = Math.floor(elapsedTime / FLASH_INTERVAL);
+            const flashData = Array.from({ length: flashCount + 1 }).map((_, i) => {
+                const t = i * FLASH_INTERVAL;
+                const motion = getMotionData(t);
+                return { t, x: motion.x, phase: motion.phase };
+            }).filter(p => p.x <= MAX_DISTANCE);
+
+            const calcIntervals = useMemo(() => {
+                if (flashData.length < 2) return [];
+                const intervals = [];
+                for (let i = 1; i < flashData.length; i++) {
+                    const prev = flashData[i-1];
+                    const curr = flashData[i];
+                    
+                    const exactDx = curr.x - prev.x;
+                    const roundedDx = Number(exactDx.toFixed(3));
+                    const calculatedV = Number((roundedDx / FLASH_INTERVAL).toFixed(3));
+                    
+                    // 判斷運動階段：固定桌高時，位移必須完全在 1m 以內才屬於 Phase 1
+                    let phase = 1;
+                    if (isFixedTableHeight) {
+                        if (curr.x <= tableHeight + 0.0001) {
+                            phase = 1; // 著地前完整區段
+                        } else if (prev.x >= tableHeight - 0.0001) {
+                            phase = 2; // 著地後完整區段
+                        } else {
+                            phase = 0; // 跨越 1m 著地點的過渡區段（排除於加速度計算）
+                        }
+                    } else {
+                        phase = 1;
+                    }
+
+                    intervals.push({
+                        id: i,
+                        dx: roundedDx,
+                        v: calculatedV,
+                        tMid: (curr.t + prev.t) / 2,
+                        xMid: (curr.x + prev.x) / 2,
+                        phase: phase
+                    });
+                }
+                return intervals;
+            }, [flashData, isFixedTableHeight]);
+
+            // 記錄數據：採計 Phase 1 完整區段，各區間加速度分別計算後取平均值
+            const handleRecord = () => {
+                const p1Int = calcIntervals.filter(i => i.phase === 1);
+                const { avgA } = computeIntervalAccelerations(p1Int);
+                const expA = avgA !== null ? avgA : a1;
+
+                setRecords(prev => [...prev, {
+                    id: prev.length + 1,
+                    cartMass,
+                    hangingMass,
+                    totalMass: cartMass + hangingMass,
+                    acceleration: expA,
+                    isFixed: isFixedTableHeight
+                }]);
+                setDisplayedCalculations(calcIntervals);
+                setShowCalculations(true);
+                setShowRecords(true);
+            };
+
+            const handleDeleteRecord = (idToRemove) => {
+                setRecords(prev => {
+                    const filtered = prev.filter(record => record.id !== idToRemove);
+                    return filtered.map((rec, index) => ({ ...rec, id: index + 1 }));
+                });
+            };
+
+            const handleExportCSV = () => {
+                if (records.length === 0) return;
+                const headers = ["實驗次數", "懸吊砝碼質量 F (kg)", "滑車質量 M (kg)", "(滑車+砝碼)質量 m (kg)", "實驗平均加速度 a (m/s²)", "固定高度1m"];
+                const rows = records.map(r => [
+                    r.id,
+                    r.hangingMass.toFixed(2),
+                    r.cartMass.toFixed(2),
+                    r.totalMass.toFixed(2),
+                    r.acceleration.toFixed(3),
+                    r.isFixed ? "開啟" : "關閉"
+                ]);
+                const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(e => e.join(","))].join("\r\n");
+                const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.setAttribute("href", url);
+                link.setAttribute("download", "牛頓第二運動定律實驗.csv");
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            };
+
+            const handleCartMassDirectInput = (valStr) => {
+                const val = parseFloat(valStr);
+                if (!isNaN(val)) {
+                    const clamped = Math.min(5.0, Math.max(0.5, val));
+                    setCartMass(parseFloat(clamped.toFixed(1)));
+                }
+            };
+
+            const handleHangingMassDirectInput = (valStr) => {
+                const val = parseFloat(valStr);
+                if (!isNaN(val)) {
+                    const clamped = Math.min(2.0, Math.max(0.1, val));
+                    setHangingMass(parseFloat(clamped.toFixed(1)));
+                }
+            };
+
+            useEffect(() => { handleResetCart(); }, [cartMass, hangingMass, friction, isFixedTableHeight]);
+
+            useEffect(() => {
+                let frameId;
+                let lastTime = performance.now();
+                
+                if (graphMode === 'drawing') {
+                    const tick = (now) => {
+                        const dt = (now - lastTime) / 1000;
+                        lastTime = now;
+                        setGraphRenderTime(prev => {
+                            const next = prev + dt * 2.5; 
+                            if (next >= elapsedTime) {
+                                if (status !== 'running') setGraphMode('showing');
+                                return elapsedTime;
+                            }
+                            return next;
+                        });
+                        if (graphMode === 'drawing') {
+                            frameId = requestAnimationFrame(tick);
+                        }
+                    };
+                    frameId = requestAnimationFrame(tick);
+                }
+                return () => cancelAnimationFrame(frameId);
+            }, [graphMode, elapsedTime, status]);
+
+            return (
+                <div className="min-h-screen p-4 md:p-8 flex flex-col items-center relative">
+                    {/* 網頁標題區 */}
+                    <div className="w-full max-w-6xl flex items-end mb-4 border-b-2 border-[#a68a6d] pb-2">
+                        <h1 className="text-3xl font-bold text-[#4a3b2c] tracking-wider">
+                            滑車實驗模擬器
+                        </h1>
+                    </div>
+
+                    {/* 標題下方說明欄位 */}
+                    <div className="w-full max-w-6xl mb-6 sketch-panel p-4 md:p-5 bg-[#fdf6e9] text-[#5c4b3a] shadow-sm">
+                        <div className="font-bold text-[#e76f51] mb-2 flex items-center gap-2 text-base md:text-lg">
+                            <i className="fa-solid fa-circle-info"></i> 實驗操作說明：
+                        </div>
+                        <ol className="list-decimal list-inside space-y-1.5 font-bold text-sm md:text-base leading-relaxed pl-1 text-[#5c4b3a]">
+                            <li>請先設定實驗參數，設定完後，於操作區點擊「開始實驗」，滑車就會開始運動。</li>
+                            <li>桌子高度預設比桌面長，故滑車到達終點前，砝碼不會著地。(理想狀態)</li>
+                            <li>可打開「固定桌子高度為1m」，這樣滑車在到達終點前，砝碼就會著地。(模擬真實情境，僅採計前 1m 完整區段)</li>
+                            <li>若要計算並記錄該次數據，請務必點擊「計算並記錄數據」（平均加速度採各區間加速度分別計算後取平均）。</li>
+                        </ol>
+                    </div>
+
+                    <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+                        {/* 左側控制台 */}
+                        <div className="sketch-box p-6 flex flex-col lg:sticky lg:top-8 order-1 lg:order-1">
+                            <h3 className="text-xl font-bold text-[#4a3b2c] mb-6 border-b-2 border-[#d4c5b9] pb-2">
+                                <i className="fa-solid fa-sliders mr-2"></i>實驗參數設定
+                            </h3>
+                            
+                            <div className="space-y-8 flex-grow">
+                                <div className="bg-[#fdf6e9] p-4 rounded-xl border-2 border-[#a68a6d] shadow-sm flex items-center justify-between">
+                                    <div className="text-lg font-bold text-[#e76f51]">固定桌子高度為 1m</div>
+                                    <div className="relative inline-block w-12 h-6 align-middle select-none transition duration-200 ease-in flex-shrink-0">
+                                        <input 
+                                            type="checkbox" 
+                                            name="toggle" 
+                                            id="toggle" 
+                                            checked={isFixedTableHeight} 
+                                            onChange={(e) => setIsFixedTableHeight(e.target.checked)} 
+                                            className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"
+                                        />
+                                        <label htmlFor="toggle" className="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
+                                    </div>
+                                </div>
+
+                                {/* 滑車質量 (M) */}
+                                <div>
+                                    <div className="flex justify-between items-center mb-2">
+                                        <label className="text-base font-bold text-[#5c4b3a]">滑車質量 (M)</label>
+                                        <div className="flex items-center gap-1 bg-[#fffdfa] border-2 border-[#a68a6d] px-2 py-0.5 rounded-lg shadow-inner">
+                                            <input 
+                                                type="number"
+                                                min="0.5"
+                                                max="5.0"
+                                                step="0.1"
+                                                value={cartMass}
+                                                onChange={(e) => handleCartMassDirectInput(e.target.value)}
+                                                className="w-16 text-right font-black text-lg text-[#e76f51] bg-transparent focus:outline-none"
+                                            />
+                                            <span className="text-sm font-bold text-[#5c4b3a]">kg</span>
+                                        </div>
+                                    </div>
+                                    <input 
+                                        type="range" min="0.5" max="5.0" step="0.1" 
+                                        value={cartMass} 
+                                        onChange={(e) => setCartMass(parseFloat(e.target.value))}
+                                        className="w-full h-3 bg-[#e8dcca] rounded-full appearance-none cursor-pointer accent-[#e76f51] border border-[#a68a6d]"
+                                    />
+                                    <div className="flex justify-between text-sm font-bold text-[#a68a6d] mt-1">
+                                        <span>0.5 kg</span><span>5.0 kg</span>
+                                    </div>
+                                </div>
+
+                                {/* 懸吊砝碼質量 (m) */}
+                                <div>
+                                    <div className="flex justify-between items-center mb-2">
+                                        <label className="text-base font-bold text-[#5c4b3a]">懸吊砝碼質量 (m)</label>
+                                        <div className="flex items-center gap-1 bg-[#fffdfa] border-2 border-[#a68a6d] px-2 py-0.5 rounded-lg shadow-inner">
+                                            <input 
+                                                type="number"
+                                                min="0.1"
+                                                max="2.0"
+                                                step="0.1"
+                                                value={hangingMass}
+                                                onChange={(e) => handleHangingMassDirectInput(e.target.value)}
+                                                className="w-16 text-right font-black text-lg text-[#f4a261] bg-transparent focus:outline-none"
+                                            />
+                                            <span className="text-sm font-bold text-[#5c4b3a]">kg</span>
+                                        </div>
+                                    </div>
+                                    <input 
+                                        type="range" min="0.1" max="2.0" step="0.1" 
+                                        value={hangingMass} 
+                                        onChange={(e) => setHangingMass(parseFloat(e.target.value))}
+                                        className="w-full h-3 bg-[#e8dcca] rounded-full appearance-none cursor-pointer accent-[#f4a261] border border-[#a68a6d]"
+                                    />
+                                    <div className="flex justify-between text-sm font-bold text-[#a68a6d] mt-1">
+                                        <span>0.1 kg</span><span>2.0 kg</span>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <div className="flex justify-between items-end mb-2">
+                                        <label className="text-base font-bold text-[#5c4b3a]">軌道動摩擦係數 (μk)</label>
+                                        <span className="text-xl font-black text-[#2a9d8f]">{friction.toFixed(2)}</span>
+                                    </div>
+                                    <input 
+                                        type="range" min="0" max="0.5" step="0.05" 
+                                        value={friction} 
+                                        onChange={(e) => setFriction(parseFloat(e.target.value))}
+                                        className="w-full h-3 bg-[#e8dcca] rounded-full appearance-none cursor-pointer accent-[#2a9d8f] border border-[#a68a6d]"
+                                    />
+                                    <div className="text-sm font-bold text-[#a68a6d] mt-1">設定為 0 則為理想無摩擦軌道</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 右側實驗主畫面 */}
+                        <div className="lg:col-span-2 space-y-6 order-2 lg:order-2">
+                            <div className="sketch-box p-6 relative overflow-hidden">
+                                <div className="watermark absolute inset-0 flex items-center justify-center opacity-[0.04] text-8xl font-black text-[#5c4b3a] rotate-[-15deg]">
+                                    JAY'S LAB
+                                </div>
+                                
+                                <div className="relative w-full sketch-panel bg-[#fcf8f2] flex items-center justify-center">
+                                    <div className="absolute top-4 right-4 z-10">
+                                        {status === 'idle' || status === 'finished' ? (
+                                            <button 
+                                                onClick={handleStart}
+                                                className="sketch-button bg-[#81b29a] text-white font-bold py-2 px-4 text-sm md:text-base flex justify-center items-center gap-2 hover:brightness-105"
+                                            >
+                                                <i className="fa-solid fa-play"></i> {status === 'finished' ? '重新開始' : (elapsedTime > 0 ? '繼續' : '開始實驗')}
+                                            </button>
+                                        ) : (
+                                            <button 
+                                                onClick={handlePause}
+                                                className="sketch-button bg-[#f4a261] text-white font-bold py-2 px-4 text-sm md:text-base flex justify-center items-center gap-2 hover:brightness-105"
+                                            >
+                                                <i className="fa-solid fa-pause"></i> 暫停
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    <svg className="w-full h-auto max-h-[65vh]" viewBox="0 0 1000 620" preserveAspectRatio="xMidYMid meet">
+                                        <defs>
+                                            <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
+                                                <path d="M 50 0 L 0 0 0 50" fill="none" stroke="#e8dcca" strokeWidth="1.5"/>
+                                            </pattern>
+                                            <filter id="handdrawn" x="-20%" y="-20%" width="140%" height="140%">
+                                                <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="3" result="noise" />
+                                                <feDisplacementMap in="SourceGraphic" in2="noise" scale="3" xChannelSelector="R" yChannelSelector="G" />
+                                            </filter>
+                                        </defs>
+                                        <rect width="100%" height="100%" fill="url(#grid)" />
+
+                                        <rect x="50" y="150" width="850" height="20" fill="#d4a373" stroke="#5c4b3a" strokeWidth="2" filter="url(#handdrawn)" rx="5" />
+                                        <rect x="60" y="170" width="15" height="405" fill="#bc8a5f" stroke="#5c4b3a" strokeWidth="2" filter="url(#handdrawn)" />
+                                        <rect x="875" y="170" width="15" height="405" fill="#bc8a5f" stroke="#5c4b3a" strokeWidth="2" filter="url(#handdrawn)" />
+                                        
+                                        <circle cx="900" cy="140" r="16" fill="#faedcd" stroke="#5c4b3a" strokeWidth="3" filter="url(#handdrawn)" />
+                                        <circle cx="900" cy="140" r="4" fill="#5c4b3a" />
+
+                                        {[0, 0.5, 1.0, 1.5, 2.0].map((mark, i) => (
+                                            <g key={i} transform={`translate(${100 + (mark / MAX_DISTANCE) * 750}, 150)`}>
+                                                <line x1="0" y1="0" x2="0" y2="12" stroke="#5c4b3a" strokeWidth="2" strokeLinecap="round" />
+                                                <text x="0" y="28" textAnchor="middle" fill={mark === 1.0 && isFixedTableHeight ? "#e76f51" : "#8c7462"} fontSize="14" fontWeight="bold">{mark}m</text>
+                                            </g>
+                                        ))}
+
+                                        {flashData.map((point, i) => {
+                                            const currX = 100 + (point.x / MAX_DISTANCE) * 750;
+                                            return (
+                                                <g key={`dot-${i}`}>
+                                                    <circle cx={currX} cy="145" r="5" fill="#e76f51" stroke="#5c4b3a" strokeWidth="1.5" />
+                                                    {i > 0 && (() => {
+                                                        const prev = flashData[i - 1];
+                                                        const prevX = 100 + (prev.x / MAX_DISTANCE) * 750;
+                                                        const dx = point.x - prev.x;
+                                                        const midX = (prevX + currX) / 2;
+                                                        return (
+                                                            <g>
+                                                                <path d={`M ${prevX} 165 Q ${prevX-2} 175 ${prevX} 185`} fill="none" stroke="#a68a6d" strokeWidth="2" strokeLinecap="round"/>
+                                                                <path d={`M ${currX} 165 Q ${currX+2} 175 ${currX} 185`} fill="none" stroke="#a68a6d" strokeWidth="2" strokeLinecap="round"/>
+                                                                <line x1={prevX} y1="175" x2={currX} y2="175" stroke="#a68a6d" strokeWidth="2" strokeDasharray="4 2" />
+                                                                <text x={midX} y="194" textAnchor="middle" fill="#e76f51" fontSize="14" fontWeight="bold">
+                                                                    {(dx * 100).toFixed(1)}cm
+                                                                </text>
+                                                            </g>
+                                                        );
+                                                    })()}
+                                                </g>
+                                            );
+                                        })}
+
+                                        <line x1={100 + (currentX / MAX_DISTANCE) * 750 + 40} y1="135" x2="900" y2="135" stroke={tension > 0 ? "#5c4b3a" : "#d4c5b9"} strokeWidth="2" strokeDasharray="5 2" />
+                                        
+                                        {(() => {
+                                            const dropDist = (isFixedTableHeight && currentX >= tableHeight) ? tableHeight : currentX;
+                                            const massHeight = 20 + hangingMass * 10;
+                                            const initialMassBottomY = 200;
+                                            const massTopY = initialMassBottomY - massHeight + (dropDist / MAX_DISTANCE) * 750;
+                                            const groundY = initialMassBottomY + (tableHeight / MAX_DISTANCE) * 750;
+                                            
+                                            return (
+                                                <g>
+                                                    <line x1="916" y1="140" x2="916" y2={massTopY} stroke={tension > 0 ? "#5c4b3a" : "#d4c5b9"} strokeWidth="2" strokeDasharray="5 2" />
+                                                    <g transform={`translate(916, ${massTopY})`}>
+                                                        <rect x="-15" y="0" width="30" height={massHeight} fill="#f4a261" stroke="#5c4b3a" strokeWidth="2" filter="url(#handdrawn)" rx="3" />
+                                                        <text x="0" y={16 + hangingMass * 5} textAnchor="middle" fill="#5c4b3a" fontSize="14" fontWeight="bold">{hangingMass}kg</text>
+                                                    </g>
+
+                                                    {isFixedTableHeight && (
+                                                        <g>
+                                                            <line x1="880" y1={groundY + 2} x2="960" y2={groundY + 2} stroke="#a68a6d" strokeWidth="4" filter="url(#handdrawn)" strokeLinecap="round"/>
+                                                            <text x="970" y={groundY + 6} fill="#8c7462" fontSize="14" fontWeight="bold">地面</text>
+                                                        </g>
+                                                    )}
+                                                </g>
+                                            );
+                                        })()}
+
+                                        <g transform={`translate(${100 + (currentX / MAX_DISTANCE) * 750}, 110)`}>
+                                            <rect x="-40" y="-10" width="80" height="40" fill="#e07a5f" stroke="#5c4b3a" strokeWidth="2" filter="url(#handdrawn)" rx="4" />
+                                            <circle cx="-25" cy="35" r="9" fill="#4a3b2c" filter="url(#handdrawn)" />
+                                            <circle cx="25" cy="35" r="9" fill="#4a3b2c" filter="url(#handdrawn)" />
+                                            <text x="0" y="16" textAnchor="middle" fill="#fff" fontSize="16" fontWeight="bold">M={cartMass}</text>
+                                        </g>
+                                    </svg>
+                                </div>
+
+                                <div className="mt-6 flex flex-col gap-4">
+                                    {/* 整合控制列 */}
+                                    <div className="p-4 sketch-panel flex flex-col gap-4">
+                                        <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-8 border-b border-[#d4c5b9] pb-3">
+                                            <label className="flex items-center gap-2 cursor-pointer text-[#5c4b3a] font-bold select-none hover:text-[#e76f51] transition-colors text-sm sm:text-base">
+                                                <input 
+                                                    type="checkbox" 
+                                                    checked={showRecords} 
+                                                    onChange={(e) => setShowRecords(e.target.checked)} 
+                                                    className="w-5 h-5 accent-[#e76f51]" 
+                                                />
+                                                顯示實驗數據表
+                                            </label>
+                                            <label className="flex items-center gap-2 cursor-pointer text-[#5c4b3a] font-bold select-none hover:text-[#e76f51] transition-colors text-sm sm:text-base">
+                                                <input 
+                                                    type="checkbox" 
+                                                    checked={showGraphs} 
+                                                    onChange={(e) => handleToggleGraphs(e.target.checked)} 
+                                                    className="w-5 h-5 accent-[#e76f51]" 
+                                                />
+                                                顯示運動圖表
+                                            </label>
+                                            <label className="flex items-center gap-2 cursor-pointer text-[#5c4b3a] font-bold select-none hover:text-[#e76f51] transition-colors text-sm sm:text-base">
+                                                <input 
+                                                    type="checkbox" 
+                                                    checked={showForceAnalysis} 
+                                                    onChange={(e) => setShowForceAnalysis(e.target.checked)} 
+                                                    className="w-5 h-5 accent-[#e76f51]" 
+                                                />
+                                                顯示當前「受力分析」
+                                            </label>
+                                        </div>
+
+                                        <div className="flex flex-wrap items-center justify-center gap-4">
+                                            <button 
+                                                onClick={handleRecord}
+                                                disabled={elapsedTime === 0}
+                                                className={`sketch-button font-bold py-2.5 px-6 text-sm sm:text-base flex items-center justify-center gap-2 transition-all ${elapsedTime === 0 ? 'bg-[#e8dcca] text-[#a66a4d] cursor-not-allowed opacity-60 shadow-none' : 'bg-[#e9c46a] text-[#5c4b3a] hover:brightness-105'}`}
+                                            >
+                                                <i className="fa-solid fa-clipboard-check"></i> 計算並記錄數據
+                                            </button>
+                                            <button 
+                                                onClick={handleResetAll}
+                                                className="sketch-button bg-[#e8dcca] text-[#5c4b3a] font-bold py-2.5 px-6 text-sm sm:text-base flex items-center justify-center gap-2 hover:bg-[#d4c5b9]"
+                                            >
+                                                <i className="fa-solid fa-rotate-left"></i> 全部重置
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* 展開的受力分析面板 */}
+                                    {showForceAnalysis && (
+                                        <div className="sketch-panel p-4 bg-[#fffdfa] border-2 border-[#a68a6d]">
+                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center font-bold text-[#5c4b3a]">
+                                                <div className="bg-[#fdf6e9] p-3 rounded-lg border border-[#d4c5b9]">
+                                                    <span className="block text-sm text-[#7d6554] mb-1">懸吊重力</span>
+                                                    <span className={`text-lg ${currentMotion.phase === 1 ? "text-[#e76f51]" : "text-[#a68a6d] line-through"}`}>
+                                                        {(hangingMass * G).toFixed(2)} N
+                                                    </span>
+                                                </div>
+                                                <div className="bg-[#fdf6e9] p-3 rounded-lg border border-[#d4c5b9]">
+                                                    <span className="block text-sm text-[#7d6554] mb-1">摩擦力</span>
+                                                    <span className="text-lg text-[#2a9d8f]">{(friction * cartMass * G).toFixed(2)} N</span>
+                                                </div>
+                                                <div className="bg-[#fdf6e9] p-3 rounded-lg border border-[#d4c5b9]">
+                                                    <span className="block text-sm text-[#7d6554] mb-1">細繩張力 (T)</span>
+                                                    <span className={`text-lg ${tension > 0 ? "text-[#81b29a]" : "text-[#a68a6d]"}`}>
+                                                        {tension.toFixed(2)} N
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* 閃光攝影圖數據推算結果：呈現各區間加速度與平均值 */}
+                                    {showCalculations && displayedCalculations && displayedCalculations.length > 0 && (
+                                        <div className="bg-[#f4ebd9] border-2 border-[#d4c5b9] rounded-xl p-4 text-[#5c4b3a] shadow-inner font-bold">
+                                            <h4 className="text-[#a66a4d] mb-3 text-lg flex items-center justify-between">
+                                                <span><i className="fa-solid fa-camera-retro mr-2"></i>閃光攝影圖數據推算 (Δt = 0.2s)</span>
+                                                <span className="text-xs bg-[#e8dcca] px-2.5 py-1 rounded-full text-[#7d6554]">
+                                                    演算法：各區間加速度取平均
+                                                </span>
+                                            </h4>
+                                            
+                                            <div className="space-y-4">
+                                                {/* 1. 各區段平均速度 */}
+                                                <div>
+                                                    <span className="block mb-2 text-[#7d6554]">各區段平均速度 (v = Δx / Δt)：</span>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {displayedCalculations.map((inv) => (
+                                                            <span key={`v-${inv.id}`} className={`px-3 py-1 rounded-lg border-2 text-sm ${inv.phase === 1 ? 'bg-[#fffdfa] border-[#d4c5b9]' : (inv.phase === 2 ? 'bg-[#e9c46a] bg-opacity-30 border-[#e9c46a]' : 'bg-[#e8dcca] bg-opacity-60 border-[#d4c5b9] text-[#8c7462]')}`}>
+                                                                v<sub>{inv.id}</sub> = {inv.v.toFixed(3)} m/s
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+
+                                                {/* 2. 相鄰區間加速度計算細節與平均加速度 */}
+                                                {(() => {
+                                                    const p1Int = displayedCalculations.filter(i => i.phase === 1);
+                                                    const p2Int = displayedCalculations.filter(i => i.phase === 2);
+                                                    const resP1 = computeIntervalAccelerations(p1Int);
+                                                    const resP2 = computeIntervalAccelerations(p2Int);
+
+                                                    return (
+                                                        <div className="space-y-3 pt-2 border-t border-[#d4c5b9]">
+                                                            {/* Phase 1 加速度 */}
+                                                            {resP1.aList.length > 0 && (
+                                                                <div>
+                                                                    <span className="block mb-1 text-sm text-[#7d6554]">
+                                                                        {isFixedTableHeight ? "Phase 1 (著地前完整區段 < 1m) 各區間加速度：" : "各區間加速度分別計算："}
+                                                                    </span>
+                                                                    <div className="flex flex-wrap gap-2 mb-2">
+                                                                        {resP1.aList.map((item, idx) => (
+                                                                            <span key={`a-p1-${idx}`} className="px-2.5 py-0.5 rounded bg-[#fffdfa] border border-[#d4c5b9] text-xs text-[#5c4b3a]">
+                                                                                a<sub>{item.fromId}→{item.toId}</sub> = {item.a.toFixed(3)} m/s²
+                                                                            </span>
+                                                                        ))}
+                                                                    </div>
+                                                                    <div className="bg-[#e76f51] text-white px-4 py-2 rounded-lg border-2 border-[#5c4b3a] shadow-sm flex items-center justify-between">
+                                                                        <span>
+                                                                            {isFixedTableHeight ? "Phase 1 採計平均加速度" : "實驗平均加速度"} 
+                                                                            <span className="text-xs ml-2 opacity-90">(共 {resP1.aList.length} 個區間平均)</span>
+                                                                        </span>
+                                                                        <span className="text-xl font-black">
+                                                                            a = {resP1.avgA.toFixed(3)} m/s²
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+
+                                                            {/* Phase 2 加速度（若開啟固定高度且已有 2 個以上完整區段） */}
+                                                            {isFixedTableHeight && resP2.aList.length > 0 && (
+                                                                <div className="mt-2">
+                                                                    <span className="block mb-1 text-sm text-[#7d6554]">
+                                                                        Phase 2 (著地後完整區段) 各區間加速度：
+                                                                    </span>
+                                                                    <div className="flex flex-wrap gap-2 mb-2">
+                                                                        {resP2.aList.map((item, idx) => (
+                                                                            <span key={`a-p2-${idx}`} className="px-2.5 py-0.5 rounded bg-[#e9c46a] bg-opacity-30 border border-[#e9c46a] text-xs text-[#5c4b3a]">
+                                                                                a<sub>{item.fromId}→{item.toId}</sub> = {item.a.toFixed(3)} m/s²
+                                                                            </span>
+                                                                        ))}
+                                                                    </div>
+                                                                    <div className="bg-[#2a9d8f] text-white px-4 py-2 rounded-lg border-2 border-[#5c4b3a] shadow-sm flex items-center justify-between">
+                                                                        <span>
+                                                                            Phase 2 (著地後) 平均加速度
+                                                                            <span className="text-xs ml-2 opacity-90">(共 {resP2.aList.length} 個區間平均)</span>
+                                                                        </span>
+                                                                        <span className="text-xl font-black">
+                                                                            a = {Math.abs(resP2.avgA) < 0.05 ? "0.000 (等速度)" : `${resP2.avgA.toFixed(3)} m/s²`}
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })()}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* 實驗紀錄表 */}
+                            {showRecords && (
+                                <div className="sketch-box p-6">
+                                    <div className="flex flex-wrap items-center justify-between gap-3 mb-4 border-b-2 border-[#d4c5b9] pb-2">
+                                        <h3 className="text-lg font-bold text-[#5c4b3a] flex items-center">
+                                            <span className="bg-[#81b29a] text-white border-2 border-[#5c4b3a] w-8 h-8 rounded-lg flex items-center justify-center mr-3"><i className="fa-solid fa-table"></i></span>
+                                            實驗數據紀錄
+                                        </h3>
+                                        <button 
+                                            onClick={handleExportCSV}
+                                            disabled={records.length === 0}
+                                            className={`sketch-button py-1.5 px-4 text-sm font-bold flex items-center gap-2 transition-all ${records.length === 0 ? 'bg-[#e8dcca] text-[#a66a4d] cursor-not-allowed opacity-60 shadow-none' : 'bg-[#2a9d8f] text-white hover:brightness-105'}`}
+                                            title={records.length === 0 ? "尚無數據可匯出" : "下載 CSV 檔"}
+                                        >
+                                            <i className="fa-solid fa-file-arrow-down"></i> 下載實驗數據 (.csv)
+                                        </button>
+                                    </div>
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-center border-collapse">
+                                            <thead>
+                                                <tr className="bg-[#fdf6e9] border-b-2 border-[#a68a6d]">
+                                                    <th className="p-3 font-bold text-[#5c4b3a] border-r-2 border-white">實驗次數</th>
+                                                    <th className="p-3 font-bold text-[#5c4b3a] border-r-2 border-white">砝碼質量 (F)</th>
+                                                    <th className="p-3 font-bold text-[#5c4b3a] border-r-2 border-white">滑車質量 (M)</th>
+                                                    <th className="p-3 font-bold text-[#5c4b3a] border-r-2 border-white">(滑車+砝碼)質量 (m)</th>
+                                                    <th className="p-3 font-bold text-[#e76f51] border-r-2 border-white">實驗平均加速度 (a)</th>
+                                                    <th className="p-3 font-bold text-[#5c4b3a]">固定高度</th>
+                                                    <th className="p-3 font-bold text-[#5c4b3a]">操作</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {records.length === 0 ? (
+                                                    <tr>
+                                                        <td colSpan="7" className="p-6 text-center text-[#a68a6d] font-bold border-b border-[#e8dcca] border-dashed">
+                                                            <i className="fa-solid fa-clipboard-list text-2xl mb-2 block"></i>
+                                                            尚未記錄任何數據，請操作上方「計算並記錄數據」按鈕。
+                                                        </td>
+                                                    </tr>
+                                                ) : (
+                                                    records.map(record => (
+                                                        <tr key={record.id} className="border-b border-[#e8dcca] border-dashed hover:bg-[#fffdfa] transition-colors">
+                                                            <td className="p-3 text-[#5c4b3a] font-bold bg-[#fdf6e9] bg-opacity-50">{record.id}</td>
+                                                            <td className="p-3 text-[#5c4b3a]">{record.hangingMass.toFixed(1)} kg</td>
+                                                            <td className="p-3 text-[#5c4b3a]">{record.cartMass.toFixed(1)} kg</td>
+                                                            <td className="p-3 text-[#5c4b3a] font-bold">{record.totalMass.toFixed(1)} kg</td>
+                                                            <td className="p-3 text-[#e76f51] font-black">{record.acceleration.toFixed(3)} m/s²</td>
+                                                            <td className="p-3 text-[#5c4b3a]">{record.isFixed ? "開啟" : "-"}</td>
+                                                            <td className="p-3">
+                                                                <button 
+                                                                    onClick={() => handleDeleteRecord(record.id)}
+                                                                    className="w-8 h-8 rounded-full bg-[#f4ebd9] text-[#e76f51] hover:bg-[#e76f51] hover:text-white transition-colors flex items-center justify-center mx-auto border border-[#d4c5b9]"
+                                                                    title="刪除此筆紀錄"
+                                                                >
+                                                                    <i className="fa-solid fa-trash-can"></i>
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    ))
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* 運動圖表 */}
+                            {showGraphs && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {(() => {
+                                        const maxTime = 4.8;
+                                        const maxV = 6.0;
+                                        const maxA = 8.0;
+                                        const minA = -8.0; 
+                                        const rangeA = maxA - minA; 
+
+                                        const graphRenderLimit = !showGraphs 
+                                            ? 0 
+                                            : (graphMode === 'drawing' ? graphRenderTime : elapsedTime);
+
+                                        const rawPts = [];
+                                        if (graphRenderLimit > 0) {
+                                            for (let t = 0; t <= graphRenderLimit; t += 0.05) {
+                                                rawPts.push({ t, ...getMotionData(t) });
+                                            }
+                                            if (isFixedTableHeight && t1 > 0 && t1 <= graphRenderLimit) {
+                                                rawPts.push({ t: t1 - 0.001, ...getMotionData(t1 - 0.001) });
+                                                rawPts.push({ t: t1 + 0.001, ...getMotionData(t1 + 0.001) });
+                                            }
+                                            const lastT = rawPts.length > 0 ? rawPts[rawPts.length - 1].t : 0;
+                                            if (lastT < graphRenderLimit) {
+                                                rawPts.push({ t: graphRenderLimit, ...getMotionData(graphRenderLimit) });
+                                            }
+                                        }
+                                        
+                                        rawPts.sort((a, b) => a.t - b.t);
+                                        const validPts = [];
+                                        for (const p of rawPts) {
+                                            if (p.t <= maxTime) {
+                                                validPts.push(p);
+                                            } else {
+                                                validPts.push({ t: maxTime, ...getMotionData(maxTime) });
+                                                break;
+                                            }
+                                        }
+
+                                        const getPx = (t) => Math.min((t / maxTime) * 100, 100);
+                                        const getVy = (v) => Math.max(0, 100 - (v / maxV) * 100);
+                                        const getAy = (a) => Math.min(100, Math.max(0, 100 - ((a - minA) / rangeA) * 100));
+
+                                        return (
+                                            <>
+                                                <div className="sketch-box p-6">
+                                                    <h3 className="text-lg font-bold text-[#5c4b3a] mb-4 flex items-center">
+                                                        <span className="bg-[#e9c46a] text-[#5c4b3a] border-2 border-[#5c4b3a] w-8 h-8 rounded-lg flex items-center justify-center mr-3"><i className="fa-solid fa-chart-line"></i></span>
+                                                        速度 - 時間圖 (v-t)
+                                                    </h3>
+                                                    <div className="w-full h-48 bg-[#fdfdfc] relative border-l-4 border-b-4 border-[#5c4b3a] ml-6 mb-6 rounded-bl-md">
+                                                        <svg className="w-full h-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none">
+                                                            {[0.25, 0.5, 0.75, 1].map(r => (
+                                                                <g key={`vy-${r}`}>
+                                                                    <line x1="0" y1={100 - r * 100} x2="100" y2={100 - r * 100} stroke="#e8dcca" strokeWidth="1" strokeDasharray="4 2" />
+                                                                    <text x="-4" y={100 - r * 100 + 2} textAnchor="end" fill="#a68a6d" fontSize="6" fontWeight="bold">{(maxV * r).toFixed(1)}</text>
+                                                                </g>
+                                                            ))}
+                                                            {[0.25, 0.5, 0.75, 1].map(r => (
+                                                                <g key={`vx-${r}`}>
+                                                                    <line x1={r * 100} y1="0" x2={r * 100} y2="100" stroke="#e8dcca" strokeWidth="1" strokeDasharray="4 2" />
+                                                                    <text x={r * 100} y="110" textAnchor="middle" fill="#a68a6d" fontSize="6" fontWeight="bold">{(maxTime * r).toFixed(1)}</text>
+                                                                </g>
+                                                            ))}
+                                                            {validPts.length > 0 && (
+                                                                <path 
+                                                                    d={validPts.map((p, i) => `${i===0?'M':'L'} ${getPx(p.t)},${getVy(p.v)}`).join(' ')} 
+                                                                    fill="none" stroke="#2a9d8f" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" 
+                                                                />
+                                                            )}
+                                                            {validPts.length > 0 && (
+                                                                <circle cx={getPx(validPts[validPts.length-1].t)} cy={getVy(validPts[validPts.length-1].v)} r="3.5" fill="#2a9d8f" stroke="#5c4b3a" strokeWidth="1.5" />
+                                                            )}
+                                                        </svg>
+                                                        <div className="absolute -top-6 -left-8 text-sm text-[#5c4b3a] font-bold">v (m/s)</div>
+                                                        <div className="absolute -bottom-10 right-0 text-sm text-[#5c4b3a] font-bold">t (s)</div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="sketch-box p-6">
+                                                    <h3 className="text-lg font-bold text-[#5c4b3a] mb-4 flex items-center">
+                                                        <span className="bg-[#f4a261] text-[#5c4b3a] border-2 border-[#5c4b3a] w-8 h-8 rounded-lg flex items-center justify-center mr-3"><i className="fa-solid fa-chart-area"></i></span>
+                                                        加速度 - 時間圖 (a-t)
+                                                    </h3>
+                                                    <div className="w-full h-48 bg-[#fdfdfc] relative border-l-4 border-b-4 border-[#5c4b3a] ml-6 mb-6 rounded-bl-md">
+                                                        <svg className="w-full h-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none">
+                                                            {[-8, -4, 0, 4, 8].map(val => {
+                                                                const py = 100 - ((val - minA) / rangeA) * 100;
+                                                                return (
+                                                                    <g key={`ay-${val}`}>
+                                                                        <line x1="0" y1={py} x2="100" y2={py} stroke="#e8dcca" strokeWidth="1" strokeDasharray={val === 0 ? "none" : "4 2"} />
+                                                                        <text x="-4" y={py + 2} textAnchor="end" fill="#a68a6d" fontSize="6" fontWeight="bold">{val.toFixed(1)}</text>
+                                                                    </g>
+                                                                );
+                                                            })}
+                                                            {[0.25, 0.5, 0.75, 1].map(r => (
+                                                                <g key={`ax-${r}`}>
+                                                                    <line x1={r * 100} y1="0" x2={r * 100} y2="100" stroke="#e8dcca" strokeWidth="1" strokeDasharray="4 2" />
+                                                                    <text x={r * 100} y="110" textAnchor="middle" fill="#a68a6d" fontSize="6" fontWeight="bold">{(maxTime * r).toFixed(1)}</text>
+                                                                </g>
+                                                            ))}
+                                                            
+                                                            {validPts.length > 0 && (
+                                                                <path 
+                                                                    d={validPts.map((p, i) => {
+                                                                        const px = getPx(p.t);
+                                                                        const py = getAy(p.a);
+                                                                        if (i === 0) return `M ${px},${py}`;
+                                                                        const prevPx = getPx(validPts[i-1].t);
+                                                                        return `L ${prevPx},${py} L ${px},${py}`; 
+                                                                    }).join(' ')} 
+                                                                    fill="none" stroke="#e76f51" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" 
+                                                                />
+                                                            )}
+                                                            {validPts.length > 0 && (
+                                                                <circle cx={getPx(validPts[validPts.length-1].t)} cy={getAy(validPts[validPts.length-1].a)} r="3.5" fill="#e76f51" stroke="#5c4b3a" strokeWidth="1.5" />
+                                                            )}
+                                                        </svg>
+                                                        <div className="absolute -top-6 -left-8 text-sm text-[#5c4b3a] font-bold">a (m/s²)</div>
+                                                        <div className="absolute -bottom-10 right-0 text-sm text-[#5c4b3a] font-bold">t (s)</div>
+                                                    </div>
+                                                </div>
+                                            </>
+                                        );
+                                    })()}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <div style={{ textAlign: 'right', margin: '40px 0 20px 0', paddingRight: '1rem', fontSize: '0.9em', color: '#666', width: '100%' }}>
+                        by Jay`s Lab 紅樓老頭子 系統版本：v1.26
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
