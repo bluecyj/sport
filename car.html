@@ -3,1411 +3,1078 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>滑車實驗關係圖產生器</title>
-    <!-- 引入 Tailwind CSS 樣式庫 -->
+    <title>滑車實驗</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- 引入 Chart.js 圖表庫 -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- 引入 SheetJS (XLSX) 試算表解析庫 -->
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <!-- 引入 html2pdf.js PDF 匯出庫 -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Klee+One:wght@400;600&display=swap" rel="stylesheet">
+    
     <style>
-        body {
-            font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, Roboto, 'Helvetica Neue', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
-            background-color: #f0fdfa; /* 清新學術風薄荷底色 */
+        body { 
+            font-family: 'Klee One', 'PingFang TC', 'Microsoft JhengHei', cursive; 
+            background-color: #fdf8ef; 
+            color: #4a3b2c;
+            background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100' height='100' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
         }
-        .step-container {
-            transition: all 0.3s ease-in-out;
-            animation: pageFadeIn 0.35s ease-in-out;
+        .watermark { pointer-events: none; user-select: none; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-thumb { background: #d4c5b9; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #b8a391; }
+
+        .sketch-box {
+            background: #fffdfa;
+            border: 3px solid #5c4b3a;
+            border-radius: 2px 255px 3px 225px / 255px 5px 225px 3px;
+            box-shadow: 5px 5px 0px rgba(92, 75, 58, 0.15);
         }
-        @keyframes pageFadeIn {
-            from { opacity: 0; transform: translateY(8px); }
-            to { opacity: 1; transform: translateY(0); }
+        .sketch-panel {
+            background: #fdf6e9;
+            border: 2px dashed #a68a6d;
+            border-radius: 255px 15px 225px 15px/15px 225px 15px 255px;
         }
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
+        .sketch-button {
+            border: 2px solid #5c4b3a;
+            border-radius: 255px 15px 225px 15px/15px 225px 15px 255px;
+            transition: all 0.2s;
+            box-shadow: 4px 4px 0px rgba(92, 75, 58, 0.2);
         }
-        .no-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
+        .sketch-button:active {
+            transform: translate(2px, 2px);
+            box-shadow: 2px 2px 0px rgba(92, 75, 58, 0.2);
+        }
+        .sketch-button:hover {
+            filter: brightness(1.05);
+        }
+        
+        .toggle-checkbox:checked {
+            right: 0;
+            border-color: #e76f51;
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #e76f51;
+        }
+        .toggle-checkbox {
+            right: 0;
+            z-index: 1;
+            border-color: #e2e8f0;
+            transition: all 0.3s;
+        }
+        .toggle-label {
+            width: 3rem;
+            height: 1.5rem;
+            background-color: #d4c5b9;
+            border-radius: 9999px;
+            transition: all 0.3s;
+        }
+
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+            opacity: 0.6;
+            cursor: pointer;
         }
     </style>
 </head>
-<body class="min-h-screen flex flex-col items-center justify-start py-8 px-4 text-slate-800">
+<body>
+    <div id="root"></div>
 
-<!-- 主容器 -->
-<div class="bg-white max-w-5xl w-full rounded-2xl shadow-xl overflow-hidden border border-teal-100 mb-8">
-    
-    <!-- 頁頭 Header -->
-    <div class="bg-gradient-to-r from-teal-600 via-teal-700 to-cyan-700 text-white p-6 text-center">
-        <h1 class="text-2xl sm:text-3xl font-extrabold tracking-wide">滑車實驗關係圖產生器</h1>
-        <p class="mt-2 text-teal-100 text-sm sm:text-base">支援單筆 / 批次 / Excel 匯入數據、多種關係圖描點切換、PNG 圖檔匯出與 PDF 專屬實驗報告</p>
-    </div>
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useMemo } = React;
 
-    <!-- 步驟指示器 Progress Indicator -->
-    <div class="flex justify-center items-center bg-teal-50 border-b border-teal-100 py-4 px-2">
-        <div class="flex items-center space-x-2 sm:space-x-4 overflow-x-auto no-scrollbar">
-            <div id="nav-step-1" class="flex items-center text-teal-800 font-bold whitespace-nowrap">
-                <span class="w-8 h-8 rounded-full border-2 border-teal-600 flex items-center justify-center mr-1 sm:mr-2 bg-teal-100 text-teal-800 text-sm">1</span>
-                <span>選擇控制變因</span>
-            </div>
-            <div class="w-4 sm:w-10 h-1 bg-gray-300 rounded" id="line-1-2"></div>
-            <div id="nav-step-2" class="flex items-center text-gray-400 font-bold whitespace-nowrap">
-                <span class="w-8 h-8 rounded-full border-2 border-gray-300 flex items-center justify-center mr-1 sm:mr-2 text-sm">2</span>
-                <span>輸入實驗數據</span>
-            </div>
-            <div class="w-4 sm:w-10 h-1 bg-gray-300 rounded" id="line-2-3"></div>
-            <div id="nav-step-3" class="flex items-center text-gray-400 font-bold whitespace-nowrap">
-                <span class="w-8 h-8 rounded-full border-2 border-gray-300 flex items-center justify-center mr-1 sm:mr-2 text-sm">3</span>
-                <span>關係圖與結論</span>
-            </div>
-            <div class="w-4 sm:w-10 h-1 bg-gray-300 rounded" id="line-3-4"></div>
-            <div id="nav-step-4" class="flex items-center text-gray-400 font-bold whitespace-nowrap">
-                <span class="w-8 h-8 rounded-full border-2 border-gray-300 flex items-center justify-center mr-1 sm:mr-2 text-sm">4</span>
-                <span>產生PDF報告</span>
-            </div>
-        </div>
-    </div>
+        const G = 9.8; 
+        const MAX_DISTANCE = 2.0; 
+        const FLASH_INTERVAL = 0.2; // 閃光週期 Δt = 0.2 秒
 
-    <div class="p-6 sm:p-8">
-
-        <!-- ===================== 第一步：選擇控制變因 ===================== -->
-        <div id="step-1" class="step-container block">
-            <div class="mb-6">
-                <h2 class="text-2xl font-bold text-teal-800">第一步：請決定您的「控制變因」</h2>
-                <p class="text-gray-600 mt-1">選定在實驗中必須「保持固定不變」的物理量：</p>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
-        <!-- 控制變因 1: 砝碼質量 -->
-        <label id="label-ctrl-weight" onclick="selectControlVar('weight')" class="flex flex-col items-center justify-center p-6 border-2 rounded-2xl cursor-pointer hover:bg-teal-50 hover:border-teal-400 transition-all border-teal-500 bg-teal-50/70 ring-2 ring-teal-500 text-center shadow-sm">
-            <input type="radio" name="control-variable" value="weight" class="hidden" checked>
-            <div class="text-4xl mb-3">⚖️</div>
-            <span class="text-lg font-bold text-gray-800">砝碼質量 (F) 固定</span>
-            <span class="text-xs text-teal-700 bg-teal-100 px-2.5 py-1 rounded-full mt-2 border border-teal-200 font-semibold">外力固定</span>
-            <p class="text-xs text-gray-500 mt-2">可繪製加速度(a)對滑車質量(M)、滑車質量倒數(1/M)、(滑車+砝碼)質量(m)、(滑車+砝碼)質量倒數(1/m) 四種關係圖</p>
-        </label>
-
-        <!-- 控制變因 2: 滑車質量 -->
-        <label id="label-ctrl-cart" onclick="selectControlVar('cart')" class="flex flex-col items-center justify-center p-6 border-2 rounded-2xl cursor-pointer hover:bg-teal-50 hover:border-teal-400 transition-all border-gray-200 text-center shadow-sm">
-            <input type="radio" name="control-variable" value="cart" class="hidden">
-            <div class="text-4xl mb-3">🏎️</div>
-            <span class="text-lg font-bold text-gray-800">滑車質量 (M) 固定</span>
-            <span class="text-xs text-teal-700 bg-teal-100 px-2.5 py-1 rounded-full mt-2 border border-teal-200 font-semibold">車體本體固定</span>
-            <p class="text-xs text-gray-500 mt-2">可繪製「加速度 a」對「砝碼質量 F」關係圖</p>
-        </label>
-
-        <!-- 控制變因 3: 滑車+砝碼質量 -->
-        <label id="label-ctrl-total" onclick="selectControlVar('total')" class="flex flex-col items-center justify-center p-6 border-2 rounded-2xl cursor-pointer hover:bg-teal-50 hover:border-teal-400 transition-all border-gray-200 text-center shadow-sm">
-            <input type="radio" name="control-variable" value="total" class="hidden">
-            <div class="text-4xl mb-3">📦</div>
-            <span class="text-lg font-bold text-gray-800">(滑車+砝碼)質量 (m) 固定</span>
-            <span class="text-xs text-teal-700 bg-teal-100 px-2.5 py-1 rounded-full mt-2 border border-teal-200 font-semibold">系統總質量固定</span>
-            <p class="text-xs text-gray-500 mt-2">可繪製「加速度 a」對「砝碼質量 F」關係圖</p>
-        </label>
-    </div>
-
-            <div class="flex justify-end items-center pt-4 border-t border-gray-100">
-                <button onclick="processStep1()" class="bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-8 rounded-xl shadow-md transition duration-200 flex items-center">
-                    下一步：輸入實驗數據 ➔
-                </button>
-            </div>
-        </div>
-
-        <!-- ===================== 第二步：輸入數據 ===================== -->
-        <div id="step-2" class="step-container hidden">
-            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
-                <div>
-                    <h2 class="text-2xl font-bold text-teal-800">第二步：建立實驗數據表</h2>
-                    <p class="text-gray-600 mt-1">目前控制變因：<span id="current-ctrl-badge" class="font-bold text-teal-700 px-2 py-0.5 bg-teal-100 rounded"></span></p>
-                </div>
-                <!-- 快速示範數據按鈕 -->
-                <button onclick="loadSampleData()" class="mt-3 sm:mt-0 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center shadow-sm">
-                    💡 載入教學示範數據
-                </button>
-            </div>
-
-            <!-- 輸入方式切換 Tab / 區塊 -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                
-                <!-- 方式 A: 單筆輸入 -->
-                <div class="bg-gray-50 border border-gray-200 rounded-xl p-5">
-                    <h3 class="font-bold text-gray-800 mb-3 flex items-center text-base">
-                        <span class="w-6 h-6 rounded-full bg-teal-600 text-white flex items-center justify-center text-xs mr-2">A</span>
-                        單筆逐筆輸入
-                    </h3>
-                    <div class="grid grid-cols-3 gap-3 mb-4">
-                        <div>
-                            <label class="block text-xs font-semibold text-gray-600 mb-1">砝碼質量 F (kg)</label>
-                            <input type="number" id="input-f" step="any" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 bg-white" placeholder="例: 0.05" onkeypress="handleSingleKey(event)">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-semibold text-gray-600 mb-1">滑車質量 M (kg)</label>
-                            <input type="number" id="input-m" step="any" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 bg-white" placeholder="例: 0.45" onkeypress="handleSingleKey(event)">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-semibold text-gray-600 mb-1">加速度 a (m/s²)</label>
-                            <input type="number" id="input-a" step="any" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 bg-white" placeholder="例: 0.98" onkeypress="handleSingleKey(event)">
-                        </div>
-                    </div>
-                    <button onclick="addSingleData()" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 rounded-lg text-sm transition shadow-sm">
-                        ＋ 新增此筆數據
-                    </button>
-                </div>
-
-                <!-- 方式 B & C: 批次貼上與檔案匯入 -->
-                <div class="bg-teal-50/60 border border-teal-200 rounded-xl p-5 flex flex-col justify-between">
-                    <div>
-                        <div class="flex justify-between items-center mb-2">
-                            <h3 class="font-bold text-teal-900 flex items-center text-base">
-                                <span class="w-6 h-6 rounded-full bg-cyan-700 text-white flex items-center justify-center text-xs mr-2">B</span>
-                                批次貼上 / 檔案匯入 (CSV 或 Excel)
-                            </h3>
-                        </div>
-                        <p class="text-xs text-gray-600 mb-2 leading-relaxed">
-                            支援<strong>完整表格</strong>或<strong>基礎數據</strong>匯入（可含表頭，支援 3 欄 <code>F, M, a</code> 或 4~5 欄含總質量 <code>F, M, m, a</code>）：
-                        </p>
-                        <textarea id="batch-input-area" rows="3" class="w-full px-3 py-2 border border-teal-300 rounded-lg text-xs font-mono bg-white focus:ring-2 focus:ring-teal-500" placeholder="可直接複製貼上含表頭之試算表，或：&#10;0.05 0.45 0.50 0.98 (含總質量)&#10;0.03 0.17 1.47 (基本三欄)"></textarea>
-                    </div>
-                    
-                    <div class="flex flex-wrap gap-2 mt-3 items-center justify-between">
-                        <!-- 檔案匯入 -->
-                        <label class="cursor-pointer bg-white hover:bg-gray-100 text-gray-700 border border-gray-300 px-3 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition flex items-center">
-                            📂 匯入 Excel / CSV
-                            <input type="file" id="file-upload" accept=".csv, .xlsx, .xls" class="hidden" onchange="handleFileUpload(event)">
-                        </label>
-                        
-                        <button onclick="processBatchInput()" class="bg-cyan-700 hover:bg-cyan-800 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition shadow-sm">
-                            解析並匯入批次文字
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <div id="data-error-notice" class="hidden bg-red-50 text-red-700 px-4 py-2 rounded-lg text-xs mb-4 border border-red-200"></div>
-
-            <!-- 數據表格產生區 -->
-            <div class="border border-gray-200 rounded-xl overflow-hidden shadow-sm mb-6 bg-white">
-                <div class="p-3 bg-gray-100 border-b border-gray-200 flex justify-between items-center">
-                    <span class="text-sm font-bold text-gray-700 flex items-center">
-                        📊 實驗數據總覽表（已自動計算：滑車+砝碼質量 m = M + F）
-                    </span>
-                    <button onclick="promptClearAllData()" class="text-xs text-red-600 hover:text-red-800 font-semibold underline">
-                        清空表格
-                    </button>
-                </div>
-                <div class="overflow-x-auto max-h-72">
-                    <table class="w-full text-center border-collapse text-sm">
-                        <thead class="bg-teal-50 text-teal-800 sticky top-0 border-b border-teal-100">
-                            <tr>
-                                <th class="py-2.5 px-3">實驗次數</th>
-                                <th class="py-2.5 px-3">砝碼質量 F (kg)</th>
-                                <th class="py-2.5 px-3">滑車質量 M (kg)</th>
-                                <th class="py-2.5 px-3 font-semibold text-teal-700">(滑車+砝碼)質量 m (kg)</th>
-                                <th class="py-2.5 px-3 font-bold text-teal-900">加速度 a (m/s²)</th>
-                                <th class="py-2.5 px-3">操作</th>
-                            </tr>
-                        </thead>
-                        <tbody id="data-table-body" class="divide-y divide-gray-200 text-gray-700">
-                            <tr>
-                                <td colspan="6" class="py-6 text-gray-400">目前尚無數據，請自上方新增或點選「載入教學示範數據」。</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- 底部導覽按鈕 -->
-            <div class="flex justify-between items-center">
-                <button onclick="goToStep(1)" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-2.5 px-6 rounded-xl transition">
-                    ⬅ 回上一步改變因
-                </button>
-                <button onclick="processStep2()" class="bg-teal-600 hover:bg-teal-700 text-white font-bold py-2.5 px-8 rounded-xl shadow-md transition">
-                    繪製關係圖 ➔
-                </button>
-            </div>
-        </div>
-
-        <!-- ===================== 第三步：關係圖與結論 ===================== -->
-        <div id="step-3" class="step-container hidden">
-            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-5 gap-3">
-                <div>
-                    <h2 class="text-2xl font-bold text-teal-800">第三步：實驗關係圖繪製與分析</h2>
-                    <p class="text-xs sm:text-sm text-gray-600">控制變因：<span id="step3-ctrl-text" class="font-bold text-teal-700"></span></p>
-                </div>
-                <!-- 功能按鈕群：迴歸線切換與一鍵下載圖檔 -->
-                <div class="flex flex-wrap gap-2">
-                    <button id="regression-toggle-btn" onclick="toggleRegression()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded-lg text-sm border border-gray-300 transition duration-200 flex items-center shadow-sm">
-                        📈 顯示迴歸線
-                    </button>
-                    <button onclick="downloadChartImage()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-5 rounded-lg text-sm shadow transition flex items-center">
-                        📥 下載當前圖表 (PNG)
-                    </button>
-                </div>
-            </div>
-
-            <!-- 圖表種類切換選單 (根據控制變因動態填入) -->
-            <div class="bg-teal-50 border border-teal-200 p-4 rounded-xl mb-5">
-                <label class="block text-xs font-bold text-teal-900 uppercase tracking-wider mb-2">
-                    請選擇欲查看或繪製的關係圖（點擊按鈕切換不同關係圖）：
-                </label>
-                <div id="chart-type-selector-group" class="flex flex-wrap gap-2">
-                    <!-- 動態插入切換按鈕 -->
-                </div>
-            </div>
-
-            <!-- 繪圖畫布 Canvas -->
-            <div class="bg-white border-2 border-teal-100 rounded-2xl p-4 shadow-sm mb-6">
-                <div class="w-full flex justify-center">
-                    <div style="width: 100%; max-width: 750px; height: 380px;">
-                        <canvas id="cartChart"></canvas>
-                    </div>
-                </div>
-                <!-- 迴歸線方程式顯示區 -->
-                <div id="regression-equation-text" class="mt-3 text-center text-sm sm:text-base font-semibold text-rose-600 hidden"></div>
-                <div class="mt-2 text-center text-xs text-gray-400">
-                    * 系統根據物理定律自動適配專屬擬合模型（正比斜直線、反比雙曲線、凹向下非線性曲線或漸近飽和曲線），呈現真實物理規律。
-                </div>
-            </div>
-
-            <!-- 結論與想法填寫區 -->
-            <div class="bg-cyan-50/50 border border-cyan-200 rounded-xl p-5 mb-6">
-                <label class="block text-base font-bold text-teal-900 mb-1 flex items-center">
-                    ✍️ 我的想法與結論：
-                </label>
-                <p class="text-xs text-gray-600 mb-3 leading-relaxed">
-                    【提示引導】：從圖表中看出了什麼趨勢？縱座標與橫坐標關係圖是否為通過原點的斜直線？若是通過原點的斜直線，又代表甚麼物理意義呢？
-                </p>
-                <textarea id="user-conclusion-input" rows="4" class="w-full p-3 border border-teal-300 rounded-lg text-sm text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-teal-500" placeholder="例如：由 _____ 對 ______ 圖中可看出，當 ____ 固定時，數據點大致分佈在通過原點的斜直線上，代表 ______ 與 ______ 成____比，即 ______ 與 ______ 成____比。"></textarea>
-            </div>
-
-            <!-- 底部導覽按鈕 -->
-            <div class="flex justify-between items-center">
-                <button onclick="goToStep(2)" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-2.5 px-6 rounded-xl transition">
-                    ⬅ 回上一步修訂數據
-                </button>
-                <button onclick="processStep3()" class="bg-teal-600 hover:bg-teal-700 text-white font-bold py-2.5 px-8 rounded-xl shadow-md transition">
-                    前往產生實驗報告 ➔
-                </button>
-            </div>
-        </div>
-
-        <!-- ===================== 第四步：產生 PDF 報告 ===================== -->
-        <div id="step-4" class="step-container hidden">
-            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3">
-                <div>
-                    <h2 class="text-2xl font-bold text-teal-800">第四步：實驗報告預覽與 PDF 匯出</h2>
-                    <p class="text-xs sm:text-sm text-gray-600">請確認報告內容無誤，點擊右方按鈕輸入姓名並下載 PDF 檔。</p>
-                </div>
-                <button onclick="openExportModal()" class="bg-rose-600 hover:bg-rose-700 text-white font-bold py-2.5 px-6 rounded-xl shadow-md transition flex items-center">
-                    📄 匯出 PDF 實驗報告
-                </button>
-            </div>
-
-            <!-- PDF 預覽與列印卡片本體 -->
-            <div id="pdf-report-document" class="bg-white p-8 border border-gray-300 rounded-xl shadow-sm text-gray-800 mb-8" style="background-color: #ffffff;">
-                <!-- 報告標頭 -->
-                <div class="text-center border-b-2 border-teal-600 pb-4 mb-6">
-                    <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">牛頓第二運動定律：滑車實驗探究報告</h1>
-                    <p class="text-sm text-teal-700 font-semibold" id="pdf-header-control-desc">探究主題：控制變因【砝碼重量】之關係</p>
-                </div>
-
-                <!-- 基本資料資訊列 -->
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-gray-50 p-3 rounded-lg border border-gray-200 text-xs sm:text-sm mb-6">
-                    <div><strong>實驗學生：</strong><span id="pdf-student-name" class="text-teal-800 font-bold">待填寫</span></div>
-                    <div><strong>控制變因：</strong><span id="pdf-ctrl-var-name" class="text-teal-800 font-bold">--</span></div>
-                    <div><strong>主要操縱變因：</strong><span id="pdf-man-var-name" class="text-teal-800 font-bold">--</span></div>
-                    <div><strong>記錄日期：</strong><span id="pdf-report-date">--</span></div>
-                </div>
-
-                <!-- 數據表格 -->
-                <div class="mb-6">
-                    <h3 class="text-sm font-bold text-gray-800 mb-2 border-l-4 border-teal-600 pl-2">一、 實驗測量與計算數據表</h3>
-                    <table class="w-full text-center border-collapse border border-gray-300 text-xs sm:text-sm">
-                        <thead class="bg-gray-100">
-                            <tr>
-                                <th class="border border-gray-300 py-1.5 px-2">次數</th>
-                                <th class="border border-gray-300 py-1.5 px-2">砝碼質量 F (kg)</th>
-                                <th class="border border-gray-300 py-1.5 px-2">滑車質量 M (kg)</th>
-                                <th class="border border-gray-300 py-1.5 px-2">總質量 m=M+F (kg)</th>
-                                <th class="border border-gray-300 py-1.5 px-2 font-bold">加速度 a (m/s²)</th>
-                            </tr>
-                        </thead>
-                        <tbody id="pdf-table-body">
-                            <!-- 動態填入 -->
-                        </tbody>
-                    </table>
-                </div>
-
-                <!-- 關係圖截圖 -->
-                <div class="mb-6">
-                    <h3 class="text-sm font-bold text-gray-800 mb-2 border-l-4 border-teal-600 pl-2">
-                        二、 實驗數據關係圖：<span id="pdf-chart-caption" class="text-teal-700"></span>
-                    </h3>
-                    <div class="flex flex-col items-center border border-gray-200 p-2 rounded-lg bg-gray-50">
-                        <img id="pdf-chart-preview" src="" alt="實驗關係圖" class="max-h-80 w-auto object-contain">
-                        <p id="pdf-regression-eq" class="text-xs text-rose-600 font-semibold text-center mt-2 hidden"></p>
-                    </div>
-                </div>
-
-                <!-- 我的想法與結論 -->
-                <div>
-                    <h3 class="text-sm font-bold text-gray-800 mb-2 border-l-4 border-teal-600 pl-2">三、 我的想法與結論</h3>
-                    <div class="p-4 bg-teal-50/40 border border-teal-200 rounded-lg text-sm leading-relaxed whitespace-pre-wrap text-gray-800 min-h-[90px]" id="pdf-conclusion-content">
-                        <!-- 動態填入 -->
-                    </div>
-                </div>
-
-            </div>
-
-            <!-- 底部導覽按鈕 -->
-            <div class="flex justify-between items-center">
-                <button onclick="goToStep(3)" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-2.5 px-6 rounded-xl transition">
-                    ⬅ 回上一步切換圖表或修改結論
-                </button>
-                <button onclick="promptResetExperiment()" class="bg-gray-100 hover:bg-gray-200 text-gray-600 font-semibold py-2.5 px-6 rounded-xl transition">
-                    🔄 重新進行新實驗
-                </button>
-            </div>
-        </div>
-
-    </div>
-</div>
-
-<!-- 自訂通用對話框與學生姓名輸入彈窗 -->
-<div id="custom-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 border border-teal-100 transform transition-all scale-100">
-        <h3 id="modal-title" class="text-lg font-bold text-gray-800 mb-2">通知</h3>
-        <p id="modal-message" class="text-sm text-gray-600 mb-4 whitespace-pre-line"></p>
-        
-        <!-- 輸入框區塊 (需要輸入時顯示) -->
-        <div id="modal-input-container" class="mb-5 hidden">
-            <label id="modal-input-label" class="block text-xs font-semibold text-teal-800 mb-1">請輸入姓名：</label>
-            <input type="text" id="modal-input" class="w-full px-3 py-2 border border-teal-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 bg-white" placeholder="例如：王小明">
-        </div>
-
-        <div class="flex justify-end space-x-3">
-            <button id="modal-cancel-btn" class="px-4 py-2 rounded-lg text-sm font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 transition">取消</button>
-            <button id="modal-confirm-btn" class="px-5 py-2 rounded-lg text-sm font-bold bg-teal-600 hover:bg-teal-700 text-white shadow transition">確定</button>
-        </div>
-    </div>
-</div>
-
-<!-- Jay's Lab 專屬簽名檔 -->
-<div style="text-align: right; margin-top: 40px; padding-bottom: 20px; font-size: 0.9em; color: #666; max-width: 1024px; width: 100%;">
-    by Jay`s Lab 紅樓老頭子 系統版本：v2.0
-</div>
-
-<script>
-    /* 全域狀態變數 */
-    let controlVarType = 'weight'; // 'weight' | 'cart' | 'total'
-    let rawExperimentData = []; // { index, f, M, m, a }
-    let currentChartInstance = null;
-    let activeChartKey = '';
-    let currentStudentName = '';
-    let showRegressionLine = false; // 迴歸線開關狀態
-    let currentEquationText = ''; // 儲存當前計算出的迴歸方程式字串
-
-    // 示範數據轉換為以 kg 為標準單位（數值符合標準中學力學滑車實驗）
-    const samplePresets = {
-        'weight': [
-            { f: 0.05, M: 0.15, a: 2.45 },
-            { f: 0.05, M: 0.20, a: 1.96 },
-            { f: 0.05, M: 0.25, a: 1.63 },
-            { f: 0.05, M: 0.35, a: 1.22 },
-            { f: 0.05, M: 0.45, a: 0.98 }
-        ],
-        'cart': [
-            { f: 0.02, M: 0.20, a: 0.89 },
-            { f: 0.04, M: 0.20, a: 1.63 },
-            { f: 0.06, M: 0.20, a: 2.26 },
-            { f: 0.08, M: 0.20, a: 2.80 },
-            { f: 0.10, M: 0.20, a: 3.27 }
-        ],
-        'total': [
-            { f: 0.02, M: 0.28, a: 0.65 },
-            { f: 0.04, M: 0.26, a: 1.31 },
-            { f: 0.06, M: 0.24, a: 1.96 },
-            { f: 0.08, M: 0.22, a: 2.61 },
-            { f: 0.10, M: 0.20, a: 3.27 }
-        ]
-    };
-
-    // 依控制變因定義關係圖清單（所有「重量」更新為「質量」，單位由 gw 更新為 kg）
-    const chartDefinitions = {
-        'weight': [
-            {
-                key: 'a_vs_M',
-                title: '「加速度 a」對「滑車質量 M」關係圖',
-                manipulated: '滑車質量 M',
-                xLabel: '滑車質量 M (kg)',
-                yLabel: '加速度 a (m/s²)',
-                calcX: (d) => d.M,
-                calcY: (d) => d.a
-            },
-            {
-                key: 'a_vs_invM',
-                title: '「加速度 a」對「1/滑車質量 1/M」關係圖',
-                manipulated: '1/滑車質量 1/M',
-                xLabel: '1/滑車質量 1/M (1/kg)',
-                yLabel: '加速度 a (m/s²)',
-                calcX: (d) => parseFloat((1 / d.M).toFixed(5)),
-                calcY: (d) => d.a
-            },
-            {
-                key: 'a_vs_m',
-                title: '「加速度 a」對「(滑車+砝碼)質量 m」關係圖',
-                manipulated: '(滑車+砝碼)質量 m',
-                xLabel: '(滑車+砝碼)質量 m (kg)',
-                yLabel: '加速度 a (m/s²)',
-                calcX: (d) => d.m,
-                calcY: (d) => d.a
-            },
-            {
-                key: 'a_vs_invm',
-                title: '「加速度 a」對「1/(滑車+砝碼)質量 1/m」關係圖',
-                manipulated: '1/(滑車+砝碼)質量 1/m',
-                xLabel: '1/(滑車+砝碼)質量 1/m (1/kg)',
-                yLabel: '加速度 a (m/s²)',
-                calcX: (d) => parseFloat((1 / d.m).toFixed(5)),
-                calcY: (d) => d.a
-            }
-        ],
-        'cart': [
-            {
-                key: 'a_vs_F_cart',
-                title: '「加速度 a」對「砝碼質量 F」關係圖',
-                manipulated: '砝碼質量 F',
-                xLabel: '砝碼質量 F (kg)',
-                yLabel: '加速度 a (m/s²)',
-                calcX: (d) => d.f,
-                calcY: (d) => d.a
-            }
-        ],
-        'total': [
-            {
-                key: 'a_vs_F_total',
-                title: '「加速度 a」對「砝碼質量 F」關係圖',
-                manipulated: '砝碼質量 F',
-                xLabel: '砝碼質量 F (kg)',
-                yLabel: '加速度 a (m/s²)',
-                calcX: (d) => d.f,
-                calcY: (d) => d.a
-            }
-        ]
-    };
-
-    // 自訂對話框系統（取代標準 alert, confirm, prompt）
-    function openModal({ title, message, showInput = false, inputDefault = '', onConfirm = null }) {
-        const modal = document.getElementById('custom-modal');
-        const modalTitle = document.getElementById('modal-title');
-        const modalMessage = document.getElementById('modal-message');
-        const inputContainer = document.getElementById('modal-input-container');
-        const inputEl = document.getElementById('modal-input');
-        const confirmBtn = document.getElementById('modal-confirm-btn');
-        const cancelBtn = document.getElementById('modal-cancel-btn');
-
-        modalTitle.textContent = title || '實驗系統提示';
-        modalMessage.textContent = message || '';
-
-        if (showInput) {
-            inputContainer.classList.remove('hidden');
-            inputEl.value = inputDefault;
-            setTimeout(() => inputEl.focus(), 100);
-        } else {
-            inputContainer.classList.add('hidden');
-        }
-
-        // 解除舊監聽並綁定新事件
-        const newConfirmBtn = confirmBtn.cloneNode(true);
-        confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
-
-        const newCancelBtn = cancelBtn.cloneNode(true);
-        cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
-
-        newConfirmBtn.onclick = () => {
-            modal.classList.add('hidden');
-            if (onConfirm) {
-                onConfirm(showInput ? inputEl.value : true);
-            }
-        };
-
-        newCancelBtn.onclick = () => {
-            modal.classList.add('hidden');
-        };
-
-        modal.classList.remove('hidden');
-    }
-
-    function goToStep(step) {
-        [1, 2, 3, 4].forEach(s => {
-            const el = document.getElementById(`step-${s}`);
-            if (s === step) {
-                el.classList.remove('hidden');
-                el.classList.add('block');
-            } else {
-                el.classList.add('hidden');
-                el.classList.remove('block');
-            }
-
-            const nav = document.getElementById(`nav-step-${s}`);
-            const badge = nav.querySelector('span');
-            if (s < step) {
-                nav.className = 'flex items-center text-teal-600 font-bold whitespace-nowrap';
-                badge.className = 'w-8 h-8 rounded-full border-2 border-teal-600 flex items-center justify-center mr-1 sm:mr-2 bg-teal-600 text-white text-sm';
-                badge.innerHTML = '✓';
-            } else if (s === step) {
-                nav.className = 'flex items-center text-teal-800 font-bold whitespace-nowrap';
-                badge.className = 'w-8 h-8 rounded-full border-2 border-teal-600 flex items-center justify-center mr-1 sm:mr-2 bg-teal-100 text-teal-800 text-sm';
-                badge.innerHTML = s;
-            } else {
-                nav.className = 'flex items-center text-gray-400 font-bold whitespace-nowrap';
-                badge.className = 'w-8 h-8 rounded-full border-2 border-gray-300 flex items-center justify-center mr-1 sm:mr-2 text-gray-500 text-sm';
-                badge.innerHTML = s;
-            }
-        });
-
-        ['line-1-2', 'line-2-3', 'line-3-4'].forEach((lineId, idx) => {
-            const line = document.getElementById(lineId);
-            if (step >= idx + 2) {
-                line.classList.replace('bg-gray-300', 'bg-teal-600');
-            } else {
-                line.classList.replace('bg-teal-600', 'bg-gray-300');
-            }
-        });
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-
-    function selectControlVar(type) {
-        controlVarType = type;
-        ['weight', 'cart', 'total'].forEach(t => {
-            const el = document.getElementById(`label-ctrl-${t}`);
-            if (t === type) {
-                el.classList.remove('border-gray-200');
-                el.classList.add('border-teal-500', 'bg-teal-50/70', 'ring-2', 'ring-teal-500');
-            } else {
-                el.classList.remove('border-teal-500', 'bg-teal-50/70', 'ring-2', 'ring-teal-500');
-                el.classList.add('border-gray-200');
-            }
-        });
-    }
-
-    function getControlVarChineseName(type) {
-        switch(type) {
-            case 'weight': return '砝碼質量 (F)';
-            case 'cart': return '滑車質量 (M)';
-            case 'total': return '滑車+砝碼質量 (m)';
-            default: return '';
-        }
-    }
-
-    function processStep1() {
-        if (!controlVarType) {
-            openModal({ title: '操作提示', message: '請先點選一個控制變因！' });
-            return;
-        }
-        document.getElementById('current-ctrl-badge').textContent = getControlVarChineseName(controlVarType);
-        goToStep(2);
-    }
-
-    function handleSingleKey(e) {
-        if (e.key === 'Enter') {
-            addSingleData();
-        }
-    }
-
-    function showDataError(msg) {
-        const el = document.getElementById('data-error-notice');
-        if (msg) {
-            el.textContent = msg;
-            el.classList.remove('hidden');
-        } else {
-            el.classList.add('hidden');
-        }
-    }
-
-    function addSingleData() {
-        showDataError('');
-        const fInput = document.getElementById('input-f');
-        const mInput = document.getElementById('input-m');
-        const aInput = document.getElementById('input-a');
-
-        const fVal = parseFloat(fInput.value);
-        const mVal = parseFloat(mInput.value);
-        const aVal = parseFloat(aInput.value);
-
-        if (isNaN(fVal) || isNaN(mVal) || isNaN(aVal)) {
-            showDataError('請完整輸入砝碼質量、滑車質量及加速度三個數值！');
-            return;
-        }
-        if (fVal <= 0 || mVal <= 0 || aVal <= 0) {
-            showDataError('質量與加速度數值皆必須大於 0！');
-            return;
-        }
-
-        const totalM = parseFloat((fVal + mVal).toFixed(4));
-
-        rawExperimentData.push({
-            index: rawExperimentData.length + 1,
-            f: fVal,
-            M: mVal,
-            m: totalM,
-            a: aVal
-        });
-
-        reindexData();
-        renderDataTable();
-
-        fInput.value = '';
-        mInput.value = '';
-        aInput.value = '';
-        fInput.focus();
-    }
-
-    // 智慧型多欄位數值解析器（自動適應：完整含 m 欄位、含次數欄位或純 3 欄數據）
-    function parseNumericRow(numbers) {
-        if (!numbers || numbers.length < 3) return null;
-
-        let fVal, mVal, totalM, aVal;
-
-        if (numbers.length === 3) {
-            // 標準 3 欄: [F, M, a]
-            fVal = numbers[0];
-            mVal = numbers[1];
-            totalM = parseFloat((fVal + mVal).toFixed(2));
-            aVal = numbers[2];
-        } else if (numbers.length === 4) {
-            // 情況 1: [F, M, m, a] (完整 4 欄無次數)
-            // 情況 2: [次數, F, M, a] (帶次數之 3 欄數據)
-            const sum01 = numbers[0] + numbers[1];
-            const sum12 = numbers[1] + numbers[2];
-
-            if (Math.abs(sum01 - numbers[2]) < 0.05 * sum01) {
-                // 研判為 F=nums[0], M=nums[1], m=nums[2], a=nums[3]
-                fVal = numbers[0];
-                mVal = numbers[1];
-                totalM = numbers[2];
-                aVal = numbers[3];
-            } else if (Math.abs(sum12 - numbers[3]) < 0.05 * sum12) {
-                // 研判為 次數=nums[0], F=nums[1], M=nums[2], a=nums[3] (nums[3]不是m，若合則推斷)
-                fVal = numbers[1];
-                mVal = numbers[2];
-                totalM = parseFloat((fVal + mVal).toFixed(2));
-                aVal = numbers[3];
-            } else {
-                // 預設為 [F, M, m, a]
-                fVal = numbers[0];
-                mVal = numbers[1];
-                totalM = numbers[2];
-                aVal = numbers[3];
-            }
-        } else {
-            // 5 欄以上 (常見於完整試算表: [次數, F, M, m, a] 或附加欄位)
-            // 嘗試檢視 nums[1] + nums[2] 是否等於 nums[3]
-            const sum12 = numbers[1] + numbers[2];
-            const sum01 = numbers[0] + numbers[1];
-
-            if (Math.abs(sum12 - numbers[3]) < 0.05 * sum12) {
-                // 次數, F, M, m, a
-                fVal = numbers[1];
-                mVal = numbers[2];
-                totalM = numbers[3];
-                aVal = numbers[4];
-            } else if (Math.abs(sum01 - numbers[2]) < 0.05 * sum01) {
-                // F, M, m, a, ...
-                fVal = numbers[0];
-                mVal = numbers[1];
-                totalM = numbers[2];
-                aVal = numbers[3];
-            } else {
-                // 備用對應: 取 nums[1], nums[2], nums[3], nums[4]
-                fVal = numbers[1];
-                mVal = numbers[2];
-                totalM = numbers[3] || parseFloat((fVal + mVal).toFixed(2));
-                aVal = numbers[4];
-            }
-        }
-
-        if (fVal > 0 && mVal > 0 && aVal > 0) {
-            return {
-                f: fVal,
-                M: mVal,
-                m: totalM || parseFloat((fVal + mVal).toFixed(2)),
-                a: aVal
-            };
-        }
-        return null;
-    }
-
-    function processBatchInput() {
-        showDataError('');
-        const text = document.getElementById('batch-input-area').value.trim();
-        if (!text) {
-            showDataError('批次輸入框目前沒有內容！');
-            return;
-        }
-
-        const lines = text.split(/\r?\n/);
-        let successCount = 0;
-
-        lines.forEach(line => {
-            const cleaned = line.replace(/,/g, ' ').replace(/\t/g, ' ').trim();
-            if (!cleaned) return;
-            // 排除純中文或純字元標題列
-            const nums = (cleaned.match(/[-+]?[0-9]*\.?[0-9]+/g) || []).map(v => parseFloat(v)).filter(v => !isNaN(v));
-            const parsed = parseNumericRow(nums);
-            if (parsed) {
-                rawExperimentData.push({
-                    index: rawExperimentData.length + 1,
-                    f: parsed.f,
-                    M: parsed.M,
-                    m: parsed.m,
-                    a: parsed.a
-                });
-                successCount++;
-            }
-        });
-
-        if (successCount === 0) {
-            showDataError('未能成功解析數據，請確保輸入文字含有數值欄位（支援 3~5 欄已計算或未計算之完整格式）。');
-            return;
-        }
-
-        document.getElementById('batch-input-area').value = '';
-        reindexData();
-        renderDataTable();
-    }
-
-    function handleFileUpload(event) {
-        showDataError('');
-        const file = event.target.files[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = function(e) {
+        // 使用 Web Audio API 合成音效
+        const playGroundHitSound = () => {
             try {
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: 'array' });
-                const firstSheetName = workbook.SheetNames[0];
-                const sheet = workbook.Sheets[firstSheetName];
-                const jsonRows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContext) return;
+                const ctx = new AudioContext();
+                
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(140, ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(35, ctx.currentTime + 0.18);
 
-                let successCount = 0;
-                let headerMapping = null;
+                gain.gain.setValueAtTime(0.7, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18);
 
-                // 第一階段：檢查前幾列是否為文字標題列（智慧尋找欄位位置，相容質量與重量、kg與gw）
-                for (let r = 0; r < Math.min(jsonRows.length, 5); r++) {
-                    const row = jsonRows[r];
-                    if (Array.isArray(row)) {
-                        const rowStr = row.map(c => String(c || '').toLowerCase()).join(' ');
-                        const hasF = rowStr.includes('砝碼') || rowStr.includes('f') || rowStr.includes('拉力');
-                        const hasM = rowStr.includes('滑車') || rowStr.includes('m') || rowStr.includes('車重') || rowStr.includes('車質量');
-                        const hasA = rowStr.includes('加速度') || rowStr.includes('a');
-                        
-                        if (hasF && hasA) {
-                            // 標題列識別出關鍵字，建立欄位映射
-                            headerMapping = { fCol: -1, mCol: -1, totalCol: -1, aCol: -1, headerRowIndex: r };
-                            row.forEach((cell, cIdx) => {
-                                const str = String(cell || '').trim();
-                                if (/總質量|總重|滑車\+砝碼|\(m\)|m\(kg\)|m\(gw\)/i.test(str)) {
-                                    headerMapping.totalCol = cIdx;
-                                } else if (/砝碼|拉力|\(f\)|f\(kg\)|f\(gw\)/i.test(str)) {
-                                    headerMapping.fCol = cIdx;
-                                } else if (/滑車|車重|車質量|\(m\)|m\(kg\)|m\(gw\)/i.test(str)) {
-                                    headerMapping.mCol = cIdx;
-                                } else if (/加速度|\(a\)|m\/s/i.test(str)) {
-                                    headerMapping.aCol = cIdx;
-                                }
-                            });
-                            break;
-                        }
-                    }
-                }
-
-                // 第二階段：依映射或智慧型數字判別解析資料列
-                jsonRows.forEach((row, rowIndex) => {
-                    if (!Array.isArray(row)) return;
-                    if (headerMapping && rowIndex <= headerMapping.headerRowIndex) return; // 略過標題列
-
-                    if (headerMapping && headerMapping.fCol >= 0 && headerMapping.mCol >= 0 && headerMapping.aCol >= 0) {
-                        // 依標題欄位精準抓取
-                        const fVal = parseFloat(row[headerMapping.fCol]);
-                        const mVal = parseFloat(row[headerMapping.mCol]);
-                        const aVal = parseFloat(row[headerMapping.aCol]);
-                        let totalM = (headerMapping.totalCol >= 0) ? parseFloat(row[headerMapping.totalCol]) : NaN;
-
-                        if (!isNaN(fVal) && !isNaN(mVal) && !isNaN(aVal) && fVal > 0 && mVal > 0 && aVal > 0) {
-                            if (isNaN(totalM) || totalM <= 0) totalM = parseFloat((fVal + mVal).toFixed(2));
-                            rawExperimentData.push({
-                                index: rawExperimentData.length + 1,
-                                f: fVal,
-                                M: mVal,
-                                m: totalM,
-                                a: aVal
-                            });
-                            successCount++;
-                            return;
-                        }
-                    }
-
-                    // 無標題或欄位未完全吻合時，啟用通用純數值自適應解析
-                    const nums = row.map(v => parseFloat(v)).filter(v => !isNaN(v));
-                    const parsed = parseNumericRow(nums);
-                    if (parsed) {
-                        rawExperimentData.push({
-                            index: rawExperimentData.length + 1,
-                            f: parsed.f,
-                            M: parsed.M,
-                            m: parsed.m,
-                            a: parsed.a
-                        });
-                        successCount++;
-                    }
-                });
-
-                if (successCount > 0) {
-                    reindexData();
-                    renderDataTable();
-                } else {
-                    showDataError('Excel/CSV 檔案中未發現有效數據列（支援 3~5 欄已計算或未計算之完整格式）。');
-                }
-            } catch (err) {
-                showDataError('解析檔案失敗，請確認檔案格式是否正確。');
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.18);
+            } catch (e) {
+                console.warn("Audio playback error:", e);
             }
-            event.target.value = '';
         };
-        reader.readAsArrayBuffer(file);
-    }
 
-    function loadSampleData() {
-        showDataError('');
-        const preset = samplePresets[controlVarType] || samplePresets['weight'];
-        rawExperimentData = preset.map((item, idx) => ({
-            index: idx + 1,
-            f: item.f,
-            M: item.M,
-            m: parseFloat((item.f + item.M).toFixed(4)),
-            a: item.a
-        }));
-        renderDataTable();
-    }
+        const playEndHitSound = () => {
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContext) return;
+                const ctx = new AudioContext();
 
-    function removeDataRow(idx) {
-        rawExperimentData.splice(idx, 1);
-        reindexData();
-        renderDataTable();
-    }
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(650, ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(180, ctx.currentTime + 0.22);
 
-    function promptClearAllData() {
-        if (rawExperimentData.length === 0) return;
-        openModal({
-            title: '確認清空',
-            message: '確定要清空所有已輸入的實驗數據嗎？',
-            onConfirm: () => {
-                rawExperimentData = [];
-                renderDataTable();
+                gain.gain.setValueAtTime(0.6, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.22);
+
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.22);
+            } catch (e) {
+                console.warn("Audio playback error:", e);
             }
-        });
-    }
+        };
 
-    function reindexData() {
-        rawExperimentData.forEach((d, idx) => {
-            d.index = idx + 1;
-        });
-    }
+        // 計算相鄰區間加速度清單與其平均值的共用輔助函式
+        const computeIntervalAccelerations = (intervals) => {
+            if (!intervals || intervals.length < 2) return { aList: [], avgA: null };
+            const aList = [];
+            for (let i = 1; i < intervals.length; i++) {
+                const prev = intervals[i - 1];
+                const curr = intervals[i];
+                // 各區間加速度 a = Δv / Δt
+                const aVal = Number(((curr.v - prev.v) / FLASH_INTERVAL).toFixed(3));
+                aList.push({
+                    fromId: prev.id,
+                    toId: curr.id,
+                    a: aVal
+                });
+            }
+            // 各區間加速度分別計算後取平均值
+            const sumA = aList.reduce((acc, cur) => acc + cur.a, 0);
+            const avgA = Number((sumA / aList.length).toFixed(3));
+            return { aList, avgA };
+        };
 
-    function renderDataTable() {
-        const tbody = document.getElementById('data-table-body');
-        if (rawExperimentData.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="6" class="py-6 text-gray-400">目前尚無數據，請自上方新增或點選「載入教學示範數據」。</td></tr>`;
-            return;
-        }
+        const App = () => {
+            const [cartMass, setCartMass] = useState(1.0); 
+            const [hangingMass, setHangingMass] = useState(0.5); 
+            const [friction, setFriction] = useState(0.0); 
+            
+            const [isFixedTableHeight, setIsFixedTableHeight] = useState(false); 
 
-        tbody.innerHTML = rawExperimentData.map((d, i) => `
-            <tr class="${i % 2 === 0 ? 'bg-white' : 'bg-teal-50/20'} hover:bg-teal-50 transition">
-                <td class="py-2.5 px-3 font-semibold text-gray-500">${d.index}</td>
-                <td class="py-2.5 px-3">${d.f}</td>
-                <td class="py-2.5 px-3">${d.M}</td>
-                <td class="py-2.5 px-3 font-medium text-teal-700">${d.m}</td>
-                <td class="py-2.5 px-3 font-bold text-gray-900">${d.a}</td>
-                <td class="py-2.5 px-3">
-                    <button onclick="removeDataRow(${i})" class="text-xs text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2 py-1 rounded transition">
-                        刪除
-                    </button>
-                </td>
-            </tr>
-        `).join('');
-    }
+            const [status, setStatus] = useState('idle'); 
+            const [elapsedTime, setElapsedTime] = useState(0); 
 
-    function processStep2() {
-        if (rawExperimentData.length < 2) {
-            openModal({ title: '數據不足', message: '請至少輸入 2 筆以上的實驗數據以繪製關係圖！' });
-            return;
-        }
+            const [showCalculations, setShowCalculations] = useState(false); 
+            const [showGraphs, setShowGraphs] = useState(false); 
+            const [showRecords, setShowRecords] = useState(false); 
+            const [records, setRecords] = useState([]); 
+            const [displayedCalculations, setDisplayedCalculations] = useState(null); 
+            
+            const [showForceAnalysis, setShowForceAnalysis] = useState(false); 
 
-        document.getElementById('step3-ctrl-text').textContent = getControlVarChineseName(controlVarType);
-        buildChartSelectorButtons();
-        updateRegressionUI();
-        goToStep(3);
-    }
+            const [graphMode, setGraphMode] = useState('hidden'); 
+            const [graphRenderTime, setGraphRenderTime] = useState(0); 
 
-    function buildChartSelectorButtons() {
-        const container = document.getElementById('chart-type-selector-group');
-        const charts = chartDefinitions[controlVarType] || [];
-        container.innerHTML = '';
+            const hasPlayedGroundHitRef = useRef(false);
+            const hasPlayedEndHitRef = useRef(false);
 
-        charts.forEach((chartDef, idx) => {
-            const btn = document.createElement('button');
-            btn.id = `chart-opt-${chartDef.key}`;
-            btn.className = `px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center shadow-sm ${
-                idx === 0 
-                ? 'bg-teal-600 text-white' 
-                : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
-            }`;
-            btn.textContent = chartDef.title.replace('「加速度 a」對', 'a 對');
-            btn.onclick = () => selectAndRenderChart(chartDef.key);
-            container.appendChild(btn);
-        });
+            const netForce = (hangingMass * G) - (friction * cartMass * G);
+            const a1 = netForce > 0 ? netForce / (cartMass + hangingMass) : 0;
+            
+            const tableHeight = 1.0;
+            
+            const t1 = a1 > 0 ? Math.sqrt((2 * tableHeight) / a1) : Infinity;
+            const v1 = a1 > 0 ? a1 * t1 : 0;
 
-        if (charts.length > 0) {
-            selectAndRenderChart(charts[0].key);
-        }
-    }
+            const a2 = -friction * G;
 
-    /* 物理專屬迴歸運算引擎：依據不同關係圖的物理定律擬合適配曲線 */
-    function calculatePhysicsRegression(chartKey, points) {
-        const n = points.length;
-        if (n < 2) return null;
-
-        // 計算 Y 平均值以計算 R^2
-        const meanY = points.reduce((acc, p) => acc + p.y, 0) / n;
-        const ssTot = points.reduce((acc, p) => acc + Math.pow(p.y - meanY, 2), 0);
-
-        // 取出控制變因之平均值作為模型物理常數 (如固定之 F 或 M)
-        const avgF = rawExperimentData.reduce((acc, d) => acc + d.f, 0) / n;
-        const avgM = rawExperimentData.reduce((acc, d) => acc + d.M, 0) / n;
-
-        let eqText = '';
-        let curvePredictor = null;
-
-        if (chartKey === 'a_vs_m') {
-            // 模型 1：反比雙曲線 a = k / m (即 y = k / x)
-            let sumYu = 0, sumU2 = 0;
-            points.forEach(p => {
-                const u = 1 / p.x;
-                sumYu += p.y * u;
-                sumU2 += u * u;
-            });
-            const k = sumU2 > 0 ? (sumYu / sumU2) : 0;
-            curvePredictor = (x) => (x > 0 ? k / x : 0);
-            eqText = `反比曲線方程式：a = ${k.toFixed(2)} / m  (即 y = ${k.toFixed(2)} / x)`;
-
-            // 計算判定係數 R^2
-            let ssRes = 0;
-            points.forEach(p => {
-                const yPred = curvePredictor(p.x);
-                ssRes += Math.pow(p.y - yPred, 2);
-            });
-            const r2 = ssTot > 0 ? Math.max(0, 1 - (ssRes / ssTot)) : 1;
-
-            return {
-                predict: curvePredictor,
-                equation: `${eqText}  (R² = ${r2.toFixed(4)})`,
-                isNonLinear: true,
-                kVal: k
+            const getMotionData = (t) => {
+                if (!isFixedTableHeight || t <= t1) {
+                    return {
+                        x: 0.5 * a1 * t * t,
+                        v: a1 * t,
+                        a: a1,
+                        phase: 1
+                    };
+                } else {
+                    const dt = t - t1;
+                    const v = v1 + a2 * dt;
+                    if (v <= 0) { 
+                        const stopTime = -v1 / a2;
+                        return {
+                            x: tableHeight + v1 * stopTime + 0.5 * a2 * stopTime * stopTime,
+                            v: 0,
+                            a: 0,
+                            phase: 2
+                        };
+                    }
+                    return {
+                        x: tableHeight + v1 * dt + 0.5 * a2 * dt * dt,
+                        v: v,
+                        a: a2,
+                        phase: 2
+                    };
+                }
             };
 
-        } else if (chartKey === 'a_vs_M') {
-            // 模型 2：位移反比曲線 a = k / (M + F)
-            const F_const = avgF;
-            let sumYu = 0, sumU2 = 0;
-            points.forEach(p => {
-                const u = 1 / (p.x + F_const);
-                sumYu += p.y * u;
-                sumU2 += u * u;
-            });
-            const k = sumU2 > 0 ? (sumYu / sumU2) : 0;
-            curvePredictor = (x) => ((x + F_const) > 0 ? k / (x + F_const) : 0);
-            eqText = `理論曲線方程式：a = ${k.toFixed(2)} / (M + ${F_const.toFixed(1)})`;
-
-        } else if (chartKey === 'a_vs_invM') {
-            // 模型 2.5：a 對 1/M 非線性曲線（非正比直線！）
-            // 物理本質：a = (k * (1/M)) / (1 + F * (1/M)) = (k * x) / (1 + F * x)
-            // 當 1/M 變大時，因吊掛砝碼質量不可忽略，曲線會明顯向下彎曲並趨近於 g
-            const F_const = avgF;
-            let sumYu = 0, sumU2 = 0;
-            points.forEach(p => {
-                const u = p.x / (1 + F_const * p.x); // 即 1 / (M + F)
-                sumYu += p.y * u;
-                sumU2 += u * u;
-            });
-            const k = sumU2 > 0 ? (sumYu / sumU2) : 0;
-            curvePredictor = (x) => ((1 + F_const * x) > 0 ? (k * x) / (1 + F_const * x) : 0);
-            eqText = `非線性理論曲線：a = (${k.toFixed(2)} × x) / (1 + ${F_const.toFixed(1)}x)  [x = 1/M]`;
-
-        } else if (chartKey === 'a_vs_F_cart') {
-            // 模型 3：M 固定時，a = g * F / (M + F) 漸近飽和曲線
-            const M_const = avgM;
-            let sumYu = 0, sumU2 = 0;
-            points.forEach(p => {
-                const u = p.x / (M_const + p.x);
-                sumYu += p.y * u;
-                sumU2 += u * u;
-            });
-            const gEff = sumU2 > 0 ? (sumYu / sumU2) : 9.8;
-            curvePredictor = (x) => ((M_const + x) > 0 ? (gEff * x) / (M_const + x) : 0);
-            eqText = `漸近飽和曲線方程式：a = (${gEff.toFixed(2)} × F) / (${M_const.toFixed(1)} + F)`;
-
-        } else {
-            // 模型 4：標準線性迴歸 y = mx + b (僅適用於 a 對 1/m 以及 總重m固定時的 a 對 F)
-            let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
-            points.forEach(p => {
-                sumX += p.x;
-                sumY += p.y;
-                sumXY += p.x * p.y;
-                sumXX += p.x * p.x;
-            });
-            const denominator = (n * sumXX - sumX * sumX);
-            if (Math.abs(denominator) < 1e-12) return null;
-
-            const slope = (n * sumXY - sumX * sumY) / denominator;
-            const intercept = (sumY - slope * sumX) / n;
-            curvePredictor = (x) => slope * x + intercept;
-
-            const mStr = Math.abs(slope) < 0.001 ? slope.toExponential(3) : slope.toFixed(4);
-            const bStr = Math.abs(intercept).toFixed(4);
-            const sign = intercept >= 0 ? '+' : '-';
-            eqText = `線性斜直線方程式：y = ${mStr}x ${sign} ${bStr}`;
-        }
-
-        // 計算統一判定係數 R^2
-        let ssRes = 0;
-        points.forEach(p => {
-            const yPred = curvePredictor(p.x);
-            ssRes += Math.pow(p.y - yPred, 2);
-        });
-        const r2 = ssTot > 0 ? Math.max(0, 1 - (ssRes / ssTot)) : 1;
-
-        return {
-            predict: curvePredictor,
-            equation: `${eqText}  (R² = ${r2.toFixed(4)})`,
-            isNonLinear: ['a_vs_m', 'a_vs_M', 'a_vs_invM', 'a_vs_F_cart'].includes(chartKey)
-        };
-    }
-
-    /* 切換迴歸線顯示狀態 */
-    function toggleRegression() {
-        showRegressionLine = !showRegressionLine;
-        updateRegressionUI();
-        if (activeChartKey) {
-            selectAndRenderChart(activeChartKey);
-        }
-    }
-    /* 更新迴歸線按鈕外觀與狀態 */
-    function updateRegressionUI() {
-        const btn = document.getElementById('regression-toggle-btn');
-        const eqDiv = document.getElementById('regression-equation-text');
-        if (!btn) return;
-
-        if (showRegressionLine) {
-            btn.innerHTML = '📈 隱藏迴歸線';
-            btn.className = 'bg-rose-100 hover:bg-rose-200 text-rose-800 font-bold py-2 px-4 rounded-lg text-sm border border-rose-300 transition duration-200 flex items-center shadow-sm';
-            eqDiv.classList.remove('hidden');
-        } else {
-            btn.innerHTML = '📈 顯示迴歸線';
-            btn.className = 'bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2 px-4 rounded-lg text-sm border border-gray-300 transition duration-200 flex items-center shadow-sm';
-            eqDiv.classList.add('hidden');
-        }
-    }
-
-    function selectAndRenderChart(chartKey) {
-        activeChartKey = chartKey;
-        const charts = chartDefinitions[controlVarType] || [];
-        
-        charts.forEach(c => {
-            const btn = document.getElementById(`chart-opt-${c.key}`);
-            if (!btn) return;
-            if (c.key === chartKey) {
-                btn.className = 'px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center shadow-sm bg-teal-600 text-white';
-            } else {
-                btn.className = 'px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center shadow-sm bg-white text-gray-700 hover:bg-gray-100 border border-gray-300';
-            }
-        });
-
-        const currentDef = charts.find(c => c.key === chartKey);
-        if (!currentDef) return;
-
-        // 純描點資料點
-        const scatterPoints = rawExperimentData.map(d => ({
-            x: currentDef.calcX(d),
-            y: currentDef.calcY(d)
-        })).sort((p1, p2) => p1.x - p2.x);
-
-        const minX = Math.min(...scatterPoints.map(p => p.x));
-        const maxX = Math.max(...scatterPoints.map(p => p.x));
-        const maxY = Math.max(...scatterPoints.map(p => p.y));
-
-        // 計算符合物理規律的專屬迴歸模型
-        const regression = calculatePhysicsRegression(chartKey, scatterPoints);
-        let regressionLinePoints = [];
-        currentEquationText = '';
-
-        if (regression) {
-            currentEquationText = regression.equation;
-            const plotMaxX = Math.max(maxX * 1.15, 1);
-            const targetMaxY = maxY * 1.25;
-
-            if (regression.isNonLinear) {
-                // 非線性曲線（如反比或漸近線）：取 80 個高密度插值點繪製絲滑平滑曲線
-                let startX = 0;
-                if (chartKey === 'a_vs_m') {
-                    // 根據物理反比方程式與 Y 軸上限動態求出起點，徹底擺脫死板硬常數限制
-                    const k = regression.kVal || (minX * maxY);
-                    const xAtCeil = targetMaxY > 0 ? (k / targetMaxY) : (minX * 0.5);
-                    startX = Math.max(Math.min(minX * 0.8, xAtCeil), 0.001);
-                }
-
-                const step = (plotMaxX - startX) / 80;
-                for (let currX = startX; currX <= plotMaxX + (step * 0.5); currX += step) {
-                    const calcY = regression.predict(currX);
-                    if (!isNaN(calcY) && isFinite(calcY) && calcY >= 0 && calcY <= (targetMaxY * 1.1)) {
-                        regressionLinePoints.push({ x: parseFloat(currX.toFixed(4)), y: parseFloat(calcY.toFixed(4)) });
-                    }
-                }
-            } else {
-                // 線性斜直線：取起點 (0) 與終點
-                regressionLinePoints = [
-                    { x: 0, y: parseFloat(regression.predict(0).toFixed(4)) },
-                    { x: plotMaxX, y: parseFloat(regression.predict(plotMaxX).toFixed(4)) }
-                ];
-            }
-        }
-
-        const eqDiv = document.getElementById('regression-equation-text');
-        eqDiv.textContent = currentEquationText;
-
-        const datasets = [
-            {
-                label: '實驗測量點',
-                data: scatterPoints,
-                backgroundColor: '#0d9488',
-                borderColor: '#0f766e',
-                borderWidth: 2,
-                pointRadius: 6,
-                pointHoverRadius: 8,
-                showLine: false
-            }
-        ];
-
-        // 若開啟迴歸線則加入虛線 Dataset
-        if (showRegressionLine && regressionLinePoints.length > 0) {
-            datasets.push({
-                type: 'line',
-                label: '物理理論迴歸擬合線',
-                data: regressionLinePoints,
-                borderColor: '#ef4444',
-                borderWidth: 2.2,
-                borderDash: [6, 5],
-                fill: false,
-                pointRadius: 0,
-                showLine: true,
-                tension: 0.15 // 確保非線性曲線平滑圓潤
-            });
-        }
-
-        const ctx = document.getElementById('cartChart').getContext('2d');
-        if (currentChartInstance) {
-            currentChartInstance.destroy();
-        }
-
-        currentChartInstance = new Chart(ctx, {
-            type: 'scatter',
-            data: { datasets },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    title: {
-                        display: true,
-                        text: currentDef.title,
-                        font: { size: 16, weight: 'bold' },
-                        padding: { top: 10, bottom: 15 }
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function(ctx) {
-                                if (ctx.datasetIndex === 0) {
-                                    return ` (${ctx.parsed.x}, ${ctx.parsed.y})`;
-                                }
-                                return ' 物理理論趨勢線';
-                            }
+            const getFinalTime = () => {
+                if (a1 <= 0) return 0;
+                if (!isFixedTableHeight || MAX_DISTANCE <= tableHeight) {
+                    return Math.sqrt((2 * MAX_DISTANCE) / a1);
+                } else {
+                    const distLeft = MAX_DISTANCE - tableHeight;
+                    if (a2 === 0) {
+                        return t1 + (distLeft / v1); 
+                    } else {
+                        const vFinalSq = v1 * v1 + 2 * a2 * distLeft;
+                        if (vFinalSq < 0) {
+                            return t1 + (-v1 / a2);
+                        } else {
+                            const dt = (-v1 + Math.sqrt(vFinalSq)) / a2;
+                            return t1 + dt;
                         }
-                    },
-                    legend: {
-                        display: showRegressionLine,
-                        position: 'top',
-                        labels: { boxWidth: 14, font: { size: 12 } }
-                    }
-                },
-                scales: {
-                    x: {
-                        type: 'linear',
-                        position: 'bottom',
-                        min: 0,
-                        suggestedMax: maxX * 1.15,
-                        title: {
-                            display: true,
-                            text: currentDef.xLabel,
-                            font: { size: 13, weight: 'bold' }
-                        },
-                        grid: { color: '#f1f5f9' }
-                    },
-                    y: {
-                        min: 0,
-                        suggestedMax: maxY * 1.25,
-                        title: {
-                            display: true,
-                            text: currentDef.yLabel,
-                            font: { size: 13, weight: 'bold' }
-                        },
-                        grid: { color: '#f1f5f9' }
                     }
                 }
-            },
-            plugins: [{
-                // 確保匯出 PNG 圖檔時為乾淨白色背景
-                id: 'customWhiteBackground',
-                beforeDraw: (chart) => {
-                    const { ctx } = chart;
-                    ctx.save();
-                    ctx.globalCompositeOperation = 'destination-over';
-                    ctx.fillStyle = '#ffffff';
-                    ctx.fillRect(0, 0, chart.width, chart.height);
-                    ctx.restore();
+            };
+
+            const finalTime = useMemo(getFinalTime, [a1, a2, t1, v1, isFixedTableHeight]);
+            
+            const currentMotion = getMotionData(elapsedTime);
+            const currentX = currentMotion.x;
+            const tension = currentMotion.phase === 1 ? cartMass * (a1 + friction * G) : 0;
+
+            useEffect(() => {
+                let frameId;
+                let startTime;
+
+                if (status === 'running') {
+                    startTime = performance.now() - elapsedTime * 1000;
+                    
+                    const tick = (now) => {
+                        const t = (now - startTime) / 1000;
+
+                        if (isFixedTableHeight && t1 < Infinity && t >= t1 && !hasPlayedGroundHitRef.current) {
+                            hasPlayedGroundHitRef.current = true;
+                            playGroundHitSound();
+                        }
+
+                        if (t >= finalTime) {
+                            setElapsedTime(finalTime);
+                            setStatus('finished');
+                            if (!hasPlayedEndHitRef.current) {
+                                hasPlayedEndHitRef.current = true;
+                                playEndHitSound();
+                            }
+                        } else {
+                            setElapsedTime(t);
+                            frameId = requestAnimationFrame(tick);
+                        }
+                    };
+                    frameId = requestAnimationFrame(tick);
                 }
-            }]
-        });
-    }
 
-    function downloadChartImage() {
-        if (!currentChartInstance) return;
-        const charts = chartDefinitions[controlVarType] || [];
-        const currentDef = charts.find(c => c.key === activeChartKey);
-        const chartTitle = currentDef ? currentDef.title : '關係圖';
-        const manipulated = currentDef ? currentDef.manipulated : '';
+                return () => cancelAnimationFrame(frameId);
+            }, [status, finalTime, isFixedTableHeight, t1]); 
 
-        const imageURL = currentChartInstance.toBase64Image('image/png', 1.0);
-        const link = document.createElement('a');
-        link.href = imageURL;
-        link.download = `${chartTitle}_操縱變因為${manipulated}.png`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    }
-
-    function processStep3() {
-        const userConclusion = document.getElementById('user-conclusion-input').value.trim();
-        if (!userConclusion) {
-            openModal({
-                title: '結論尚未填寫',
-                message: '您尚未填寫「我的想法與結論」，是否直接前往報告預覽？',
-                onConfirm: () => {
-                    prepareReportView();
-                    goToStep(4);
+            const handleStart = () => {
+                if (a1 <= 0) return;
+                if (status === 'finished' || elapsedTime >= finalTime) {
+                    setElapsedTime(0);
+                    hasPlayedGroundHitRef.current = false;
+                    hasPlayedEndHitRef.current = false;
                 }
-            });
-            return;
-        }
-        prepareReportView();
-        goToStep(4);
-    }
+                if (showGraphs) {
+                    setGraphMode('showing');
+                }
+                setStatus('running');
+            };
 
-    function prepareReportView() {
-        const ctrlName = getControlVarChineseName(controlVarType);
-        const charts = chartDefinitions[controlVarType] || [];
-        const currentDef = charts.find(c => c.key === activeChartKey) || charts[0];
+            const handlePause = () => setStatus('idle');
+            
+            const handleResetCart = () => {
+                setStatus('idle');
+                setElapsedTime(0);
+                hasPlayedGroundHitRef.current = false;
+                hasPlayedEndHitRef.current = false;
+                setGraphMode(showGraphs ? 'showing' : 'hidden');
+                setGraphRenderTime(0);
+                setShowCalculations(false);
+                setDisplayedCalculations(null);
+            };
 
-        document.getElementById('pdf-header-control-desc').textContent = `探究主題：控制變因【${ctrlName}】之關係`;
-        document.getElementById('pdf-ctrl-var-name').textContent = ctrlName;
-        document.getElementById('pdf-man-var-name').textContent = currentDef ? currentDef.manipulated : '--';
-        document.getElementById('pdf-report-date').textContent = new Date().toLocaleDateString('zh-TW');
+            const handleResetAll = () => {
+                setStatus('idle');
+                setElapsedTime(0);
+                hasPlayedGroundHitRef.current = false;
+                hasPlayedEndHitRef.current = false;
+                setCartMass(1.0);
+                setHangingMass(0.5);
+                setFriction(0.0);
+                setIsFixedTableHeight(false);
+                setRecords([]);
+                setShowGraphs(false);
+                setShowRecords(false);
+                setShowForceAnalysis(false);
+                setGraphMode('hidden');
+                setGraphRenderTime(0);
+                setShowCalculations(false);
+                setDisplayedCalculations(null);
+            };
 
-        const pdfTbody = document.getElementById('pdf-table-body');
-        pdfTbody.innerHTML = rawExperimentData.map((d, i) => `
-            <tr class="${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}">
-                <td class="border border-gray-300 py-1.5 px-2">${d.index}</td>
-                <td class="border border-gray-300 py-1.5 px-2">${d.f}</td>
-                <td class="border border-gray-300 py-1.5 px-2">${d.M}</td>
-                <td class="border border-gray-300 py-1.5 px-2 font-medium">${d.m}</td>
-                <td class="border border-gray-300 py-1.5 px-2 font-bold">${d.a}</td>
-            </tr>
-        `).join('');
+            const handleToggleGraphs = (checked) => {
+                setShowGraphs(checked);
+                if (checked) {
+                    if (status === 'running') {
+                        setGraphMode('showing');
+                    } else if (elapsedTime > 0) {
+                        setGraphMode('drawing');
+                        setGraphRenderTime(0);
+                    } else {
+                        setGraphMode('showing');
+                    }
+                } else {
+                    setGraphMode('hidden');
+                }
+            };
 
-        document.getElementById('pdf-chart-caption').textContent = currentDef ? currentDef.title : '';
-        if (currentChartInstance) {
-            document.getElementById('pdf-chart-preview').src = currentChartInstance.toBase64Image('image/png', 1.0);
-        }
+            // 閃光攝影軌跡推導各區段
+            const flashCount = Math.floor(elapsedTime / FLASH_INTERVAL);
+            const flashData = Array.from({ length: flashCount + 1 }).map((_, i) => {
+                const t = i * FLASH_INTERVAL;
+                const motion = getMotionData(t);
+                return { t, x: motion.x, phase: motion.phase };
+            }).filter(p => p.x <= MAX_DISTANCE);
 
-        // 同步在 PDF 報告中顯示迴歸方程式
-        const pdfEq = document.getElementById('pdf-regression-eq');
-        if (showRegressionLine && currentEquationText) {
-            pdfEq.textContent = currentEquationText;
-            pdfEq.classList.remove('hidden');
-        } else {
-            pdfEq.classList.add('hidden');
-        }
+            const calcIntervals = useMemo(() => {
+                if (flashData.length < 2) return [];
+                const intervals = [];
+                for (let i = 1; i < flashData.length; i++) {
+                    const prev = flashData[i-1];
+                    const curr = flashData[i];
+                    
+                    const exactDx = curr.x - prev.x;
+                    const roundedDx = Number(exactDx.toFixed(3));
+                    const calculatedV = Number((roundedDx / FLASH_INTERVAL).toFixed(3));
+                    
+                    // 判斷運動階段：固定桌高時，位移必須完全在 1m 以內才屬於 Phase 1
+                    let phase = 1;
+                    if (isFixedTableHeight) {
+                        if (curr.x <= tableHeight + 0.0001) {
+                            phase = 1; // 著地前完整區段
+                        } else if (prev.x >= tableHeight - 0.0001) {
+                            phase = 2; // 著地後完整區段
+                        } else {
+                            phase = 0; // 跨越 1m 著地點的過渡區段（排除於加速度計算）
+                        }
+                    } else {
+                        phase = 1;
+                    }
 
-        const userConclusion = document.getElementById('user-conclusion-input').value.trim();
-        document.getElementById('pdf-conclusion-content').textContent = userConclusion || '（未填寫結論內容）';
-    }
+                    intervals.push({
+                        id: i,
+                        dx: roundedDx,
+                        v: calculatedV,
+                        tMid: (curr.t + prev.t) / 2,
+                        xMid: (curr.x + prev.x) / 2,
+                        phase: phase
+                    });
+                }
+                return intervals;
+            }, [flashData, isFixedTableHeight]);
 
-    function openExportModal() {
-        openModal({
-            title: '匯出 PDF 實驗報告',
-            message: '請輸入學生姓名或組別代號：',
-            showInput: true,
-            inputDefault: currentStudentName || '探究學生',
-            onConfirm: (name) => {
-                const finalName = (name && name.trim()) ? name.trim() : '學生';
-                currentStudentName = finalName;
-                document.getElementById('pdf-student-name').textContent = finalName;
+            // 記錄數據：採計 Phase 1 完整區段，各區間加速度分別計算後取平均值
+            const handleRecord = () => {
+                const p1Int = calcIntervals.filter(i => i.phase === 1);
+                const { avgA } = computeIntervalAccelerations(p1Int);
+                const expA = avgA !== null ? avgA : a1;
 
-                const ctrlName = getControlVarChineseName(controlVarType).replace(/[()]/g, '');
-                const pdfFileName = `${ctrlName}+${finalName}.pdf`;
-                const element = document.getElementById('pdf-report-document');
+                setRecords(prev => [...prev, {
+                    id: prev.length + 1,
+                    cartMass,
+                    hangingMass,
+                    totalMass: cartMass + hangingMass,
+                    acceleration: expA,
+                    isFixed: isFixedTableHeight
+                }]);
+                setDisplayedCalculations(calcIntervals);
+                setShowCalculations(true);
+                setShowRecords(true);
+            };
 
-                const opt = {
-                    margin: [10, 10, 10, 10],
-                    filename: pdfFileName,
-                    image: { type: 'jpeg', quality: 0.98 },
-                    html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
-                    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-                };
+            const handleDeleteRecord = (idToRemove) => {
+                setRecords(prev => {
+                    const filtered = prev.filter(record => record.id !== idToRemove);
+                    return filtered.map((rec, index) => ({ ...rec, id: index + 1 }));
+                });
+            };
 
-                html2pdf().set(opt).from(element).save();
-            }
-        });
-    }
+            const handleExportCSV = () => {
+                if (records.length === 0) return;
+                const headers = ["實驗次數", "懸吊砝碼質量 F (kg)", "滑車質量 M (kg)", "(滑車+砝碼)質量 m (kg)", "實驗平均加速度 a (m/s²)", "固定高度1m"];
+                const rows = records.map(r => [
+                    r.id,
+                    r.hangingMass.toFixed(2),
+                    r.cartMass.toFixed(2),
+                    r.totalMass.toFixed(2),
+                    r.acceleration.toFixed(3),
+                    r.isFixed ? "開啟" : "關閉"
+                ]);
+                const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(e => e.join(","))].join("\r\n");
+                const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.setAttribute("href", url);
+                link.setAttribute("download", "牛頓第二運動定律實驗.csv");
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            };
 
-    function promptResetExperiment() {
-        openModal({
-            title: '重新進行實驗',
-            message: '確定要結束本次實驗並重新開始嗎？所有輸入資料將會重置。',
-            onConfirm: () => {
-                rawExperimentData = [];
-                currentStudentName = '';
-                document.getElementById('user-conclusion-input').value = '';
-                renderDataTable();
-                selectControlVar('weight');
-                goToStep(1);
-            }
-        });
-    }
+            const handleCartMassDirectInput = (valStr) => {
+                const val = parseFloat(valStr);
+                if (!isNaN(val)) {
+                    const clamped = Math.min(5.0, Math.max(0.5, val));
+                    setCartMass(parseFloat(clamped.toFixed(1)));
+                }
+            };
 
-    window.onload = function() {
-        selectControlVar('weight');
-    };
-</script>
+            const handleHangingMassDirectInput = (valStr) => {
+                const val = parseFloat(valStr);
+                if (!isNaN(val)) {
+                    const clamped = Math.min(2.0, Math.max(0.1, val));
+                    setHangingMass(parseFloat(clamped.toFixed(1)));
+                }
+            };
+
+            useEffect(() => { handleResetCart(); }, [cartMass, hangingMass, friction, isFixedTableHeight]);
+
+            useEffect(() => {
+                let frameId;
+                let lastTime = performance.now();
+                
+                if (graphMode === 'drawing') {
+                    const tick = (now) => {
+                        const dt = (now - lastTime) / 1000;
+                        lastTime = now;
+                        setGraphRenderTime(prev => {
+                            const next = prev + dt * 2.5; 
+                            if (next >= elapsedTime) {
+                                if (status !== 'running') setGraphMode('showing');
+                                return elapsedTime;
+                            }
+                            return next;
+                        });
+                        if (graphMode === 'drawing') {
+                            frameId = requestAnimationFrame(tick);
+                        }
+                    };
+                    frameId = requestAnimationFrame(tick);
+                }
+                return () => cancelAnimationFrame(frameId);
+            }, [graphMode, elapsedTime, status]);
+
+            return (
+                <div className="min-h-screen p-4 md:p-8 flex flex-col items-center relative">
+                    {/* 網頁標題區 */}
+                    <div className="w-full max-w-6xl flex items-end mb-4 border-b-2 border-[#a68a6d] pb-2">
+                        <h1 className="text-3xl font-bold text-[#4a3b2c] tracking-wider">
+                            滑車實驗模擬器
+                        </h1>
+                    </div>
+
+                    {/* 標題下方說明欄位 */}
+                    <div className="w-full max-w-6xl mb-6 sketch-panel p-4 md:p-5 bg-[#fdf6e9] text-[#5c4b3a] shadow-sm">
+                        <div className="font-bold text-[#e76f51] mb-2 flex items-center gap-2 text-base md:text-lg">
+                            <i className="fa-solid fa-circle-info"></i> 實驗操作說明：
+                        </div>
+                        <ol className="list-decimal list-inside space-y-1.5 font-bold text-sm md:text-base leading-relaxed pl-1 text-[#5c4b3a]">
+                            <li>請先設定實驗參數，設定完後，於操作區點擊「開始實驗」，滑車就會開始運動。</li>
+                            <li>桌子高度預設比桌面長，故滑車到達終點前，砝碼不會著地。(理想狀態)</li>
+                            <li>可打開「固定桌子高度為1m」，這樣滑車在到達終點前，砝碼就會著地。(模擬真實情境，僅採計前 1m 完整區段)</li>
+                            <li>若要計算並記錄該次數據，請務必點擊「計算並記錄數據」（平均加速度採各區間加速度分別計算後取平均）。</li>
+                        </ol>
+                    </div>
+
+                    <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+                        {/* 左側控制台 */}
+                        <div className="sketch-box p-6 flex flex-col lg:sticky lg:top-8 order-1 lg:order-1">
+                            <h3 className="text-xl font-bold text-[#4a3b2c] mb-6 border-b-2 border-[#d4c5b9] pb-2">
+                                <i className="fa-solid fa-sliders mr-2"></i>實驗參數設定
+                            </h3>
+                            
+                            <div className="space-y-8 flex-grow">
+                                <div className="bg-[#fdf6e9] p-4 rounded-xl border-2 border-[#a68a6d] shadow-sm flex items-center justify-between">
+                                    <div className="text-lg font-bold text-[#e76f51]">固定桌子高度為 1m</div>
+                                    <div className="relative inline-block w-12 h-6 align-middle select-none transition duration-200 ease-in flex-shrink-0">
+                                        <input 
+                                            type="checkbox" 
+                                            name="toggle" 
+                                            id="toggle" 
+                                            checked={isFixedTableHeight} 
+                                            onChange={(e) => setIsFixedTableHeight(e.target.checked)} 
+                                            className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"
+                                        />
+                                        <label htmlFor="toggle" className="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
+                                    </div>
+                                </div>
+
+                                {/* 滑車質量 (M) */}
+                                <div>
+                                    <div className="flex justify-between items-center mb-2">
+                                        <label className="text-base font-bold text-[#5c4b3a]">滑車質量 (M)</label>
+                                        <div className="flex items-center gap-1 bg-[#fffdfa] border-2 border-[#a68a6d] px-2 py-0.5 rounded-lg shadow-inner">
+                                            <input 
+                                                type="number"
+                                                min="0.5"
+                                                max="5.0"
+                                                step="0.1"
+                                                value={cartMass}
+                                                onChange={(e) => handleCartMassDirectInput(e.target.value)}
+                                                className="w-16 text-right font-black text-lg text-[#e76f51] bg-transparent focus:outline-none"
+                                            />
+                                            <span className="text-sm font-bold text-[#5c4b3a]">kg</span>
+                                        </div>
+                                    </div>
+                                    <input 
+                                        type="range" min="0.5" max="5.0" step="0.1" 
+                                        value={cartMass} 
+                                        onChange={(e) => setCartMass(parseFloat(e.target.value))}
+                                        className="w-full h-3 bg-[#e8dcca] rounded-full appearance-none cursor-pointer accent-[#e76f51] border border-[#a68a6d]"
+                                    />
+                                    <div className="flex justify-between text-sm font-bold text-[#a68a6d] mt-1">
+                                        <span>0.5 kg</span><span>5.0 kg</span>
+                                    </div>
+                                </div>
+
+                                {/* 懸吊砝碼質量 (m) */}
+                                <div>
+                                    <div className="flex justify-between items-center mb-2">
+                                        <label className="text-base font-bold text-[#5c4b3a]">懸吊砝碼質量 (m)</label>
+                                        <div className="flex items-center gap-1 bg-[#fffdfa] border-2 border-[#a68a6d] px-2 py-0.5 rounded-lg shadow-inner">
+                                            <input 
+                                                type="number"
+                                                min="0.1"
+                                                max="2.0"
+                                                step="0.1"
+                                                value={hangingMass}
+                                                onChange={(e) => handleHangingMassDirectInput(e.target.value)}
+                                                className="w-16 text-right font-black text-lg text-[#f4a261] bg-transparent focus:outline-none"
+                                            />
+                                            <span className="text-sm font-bold text-[#5c4b3a]">kg</span>
+                                        </div>
+                                    </div>
+                                    <input 
+                                        type="range" min="0.1" max="2.0" step="0.1" 
+                                        value={hangingMass} 
+                                        onChange={(e) => setHangingMass(parseFloat(e.target.value))}
+                                        className="w-full h-3 bg-[#e8dcca] rounded-full appearance-none cursor-pointer accent-[#f4a261] border border-[#a68a6d]"
+                                    />
+                                    <div className="flex justify-between text-sm font-bold text-[#a68a6d] mt-1">
+                                        <span>0.1 kg</span><span>2.0 kg</span>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <div className="flex justify-between items-end mb-2">
+                                        <label className="text-base font-bold text-[#5c4b3a]">軌道動摩擦係數 (μk)</label>
+                                        <span className="text-xl font-black text-[#2a9d8f]">{friction.toFixed(2)}</span>
+                                    </div>
+                                    <input 
+                                        type="range" min="0" max="0.5" step="0.05" 
+                                        value={friction} 
+                                        onChange={(e) => setFriction(parseFloat(e.target.value))}
+                                        className="w-full h-3 bg-[#e8dcca] rounded-full appearance-none cursor-pointer accent-[#2a9d8f] border border-[#a68a6d]"
+                                    />
+                                    <div className="text-sm font-bold text-[#a68a6d] mt-1">設定為 0 則為理想無摩擦軌道</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 右側實驗主畫面 */}
+                        <div className="lg:col-span-2 space-y-6 order-2 lg:order-2">
+                            <div className="sketch-box p-6 relative overflow-hidden">
+                                <div className="watermark absolute inset-0 flex items-center justify-center opacity-[0.04] text-8xl font-black text-[#5c4b3a] rotate-[-15deg]">
+                                    JAY'S LAB
+                                </div>
+                                
+                                <div className="relative w-full sketch-panel bg-[#fcf8f2] flex items-center justify-center">
+                                    <div className="absolute top-4 right-4 z-10">
+                                        {status === 'idle' || status === 'finished' ? (
+                                            <button 
+                                                onClick={handleStart}
+                                                className="sketch-button bg-[#81b29a] text-white font-bold py-2 px-4 text-sm md:text-base flex justify-center items-center gap-2 hover:brightness-105"
+                                            >
+                                                <i className="fa-solid fa-play"></i> {status === 'finished' ? '重新開始' : (elapsedTime > 0 ? '繼續' : '開始實驗')}
+                                            </button>
+                                        ) : (
+                                            <button 
+                                                onClick={handlePause}
+                                                className="sketch-button bg-[#f4a261] text-white font-bold py-2 px-4 text-sm md:text-base flex justify-center items-center gap-2 hover:brightness-105"
+                                            >
+                                                <i className="fa-solid fa-pause"></i> 暫停
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    <svg className="w-full h-auto max-h-[65vh]" viewBox="0 0 1000 620" preserveAspectRatio="xMidYMid meet">
+                                        <defs>
+                                            <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
+                                                <path d="M 50 0 L 0 0 0 50" fill="none" stroke="#e8dcca" strokeWidth="1.5"/>
+                                            </pattern>
+                                            <filter id="handdrawn" x="-20%" y="-20%" width="140%" height="140%">
+                                                <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="3" result="noise" />
+                                                <feDisplacementMap in="SourceGraphic" in2="noise" scale="3" xChannelSelector="R" yChannelSelector="G" />
+                                            </filter>
+                                        </defs>
+                                        <rect width="100%" height="100%" fill="url(#grid)" />
+
+                                        <rect x="50" y="150" width="850" height="20" fill="#d4a373" stroke="#5c4b3a" strokeWidth="2" filter="url(#handdrawn)" rx="5" />
+                                        <rect x="60" y="170" width="15" height="405" fill="#bc8a5f" stroke="#5c4b3a" strokeWidth="2" filter="url(#handdrawn)" />
+                                        <rect x="875" y="170" width="15" height="405" fill="#bc8a5f" stroke="#5c4b3a" strokeWidth="2" filter="url(#handdrawn)" />
+                                        
+                                        <circle cx="900" cy="140" r="16" fill="#faedcd" stroke="#5c4b3a" strokeWidth="3" filter="url(#handdrawn)" />
+                                        <circle cx="900" cy="140" r="4" fill="#5c4b3a" />
+
+                                        {[0, 0.5, 1.0, 1.5, 2.0].map((mark, i) => (
+                                            <g key={i} transform={`translate(${100 + (mark / MAX_DISTANCE) * 750}, 150)`}>
+                                                <line x1="0" y1="0" x2="0" y2="12" stroke="#5c4b3a" strokeWidth="2" strokeLinecap="round" />
+                                                <text x="0" y="28" textAnchor="middle" fill={mark === 1.0 && isFixedTableHeight ? "#e76f51" : "#8c7462"} fontSize="14" fontWeight="bold">{mark}m</text>
+                                            </g>
+                                        ))}
+
+                                        {flashData.map((point, i) => {
+                                            const currX = 100 + (point.x / MAX_DISTANCE) * 750;
+                                            return (
+                                                <g key={`dot-${i}`}>
+                                                    <circle cx={currX} cy="145" r="5" fill="#e76f51" stroke="#5c4b3a" strokeWidth="1.5" />
+                                                    {i > 0 && (() => {
+                                                        const prev = flashData[i - 1];
+                                                        const prevX = 100 + (prev.x / MAX_DISTANCE) * 750;
+                                                        const dx = point.x - prev.x;
+                                                        const midX = (prevX + currX) / 2;
+                                                        return (
+                                                            <g>
+                                                                <path d={`M ${prevX} 165 Q ${prevX-2} 175 ${prevX} 185`} fill="none" stroke="#a68a6d" strokeWidth="2" strokeLinecap="round"/>
+                                                                <path d={`M ${currX} 165 Q ${currX+2} 175 ${currX} 185`} fill="none" stroke="#a68a6d" strokeWidth="2" strokeLinecap="round"/>
+                                                                <line x1={prevX} y1="175" x2={currX} y2="175" stroke="#a68a6d" strokeWidth="2" strokeDasharray="4 2" />
+                                                                <text x={midX} y="194" textAnchor="middle" fill="#e76f51" fontSize="14" fontWeight="bold">
+                                                                    {(dx * 100).toFixed(1)}cm
+                                                                </text>
+                                                            </g>
+                                                        );
+                                                    })()}
+                                                </g>
+                                            );
+                                        })}
+
+                                        <line x1={100 + (currentX / MAX_DISTANCE) * 750 + 40} y1="135" x2="900" y2="135" stroke={tension > 0 ? "#5c4b3a" : "#d4c5b9"} strokeWidth="2" strokeDasharray="5 2" />
+                                        
+                                        {(() => {
+                                            const dropDist = (isFixedTableHeight && currentX >= tableHeight) ? tableHeight : currentX;
+                                            const massHeight = 20 + hangingMass * 10;
+                                            const initialMassBottomY = 200;
+                                            const massTopY = initialMassBottomY - massHeight + (dropDist / MAX_DISTANCE) * 750;
+                                            const groundY = initialMassBottomY + (tableHeight / MAX_DISTANCE) * 750;
+                                            
+                                            return (
+                                                <g>
+                                                    <line x1="916" y1="140" x2="916" y2={massTopY} stroke={tension > 0 ? "#5c4b3a" : "#d4c5b9"} strokeWidth="2" strokeDasharray="5 2" />
+                                                    <g transform={`translate(916, ${massTopY})`}>
+                                                        <rect x="-15" y="0" width="30" height={massHeight} fill="#f4a261" stroke="#5c4b3a" strokeWidth="2" filter="url(#handdrawn)" rx="3" />
+                                                        <text x="0" y={16 + hangingMass * 5} textAnchor="middle" fill="#5c4b3a" fontSize="14" fontWeight="bold">{hangingMass}kg</text>
+                                                    </g>
+
+                                                    {isFixedTableHeight && (
+                                                        <g>
+                                                            <line x1="880" y1={groundY + 2} x2="960" y2={groundY + 2} stroke="#a68a6d" strokeWidth="4" filter="url(#handdrawn)" strokeLinecap="round"/>
+                                                            <text x="970" y={groundY + 6} fill="#8c7462" fontSize="14" fontWeight="bold">地面</text>
+                                                        </g>
+                                                    )}
+                                                </g>
+                                            );
+                                        })()}
+
+                                        <g transform={`translate(${100 + (currentX / MAX_DISTANCE) * 750}, 110)`}>
+                                            <rect x="-40" y="-10" width="80" height="40" fill="#e07a5f" stroke="#5c4b3a" strokeWidth="2" filter="url(#handdrawn)" rx="4" />
+                                            <circle cx="-25" cy="35" r="9" fill="#4a3b2c" filter="url(#handdrawn)" />
+                                            <circle cx="25" cy="35" r="9" fill="#4a3b2c" filter="url(#handdrawn)" />
+                                            <text x="0" y="16" textAnchor="middle" fill="#fff" fontSize="16" fontWeight="bold">M={cartMass}</text>
+                                        </g>
+                                    </svg>
+                                </div>
+
+                                <div className="mt-6 flex flex-col gap-4">
+                                    {/* 整合控制列 */}
+                                    <div className="p-4 sketch-panel flex flex-col gap-4">
+                                        <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-8 border-b border-[#d4c5b9] pb-3">
+                                            <label className="flex items-center gap-2 cursor-pointer text-[#5c4b3a] font-bold select-none hover:text-[#e76f51] transition-colors text-sm sm:text-base">
+                                                <input 
+                                                    type="checkbox" 
+                                                    checked={showRecords} 
+                                                    onChange={(e) => setShowRecords(e.target.checked)} 
+                                                    className="w-5 h-5 accent-[#e76f51]" 
+                                                />
+                                                顯示實驗數據表
+                                            </label>
+                                            <label className="flex items-center gap-2 cursor-pointer text-[#5c4b3a] font-bold select-none hover:text-[#e76f51] transition-colors text-sm sm:text-base">
+                                                <input 
+                                                    type="checkbox" 
+                                                    checked={showGraphs} 
+                                                    onChange={(e) => handleToggleGraphs(e.target.checked)} 
+                                                    className="w-5 h-5 accent-[#e76f51]" 
+                                                />
+                                                顯示運動圖表
+                                            </label>
+                                            <label className="flex items-center gap-2 cursor-pointer text-[#5c4b3a] font-bold select-none hover:text-[#e76f51] transition-colors text-sm sm:text-base">
+                                                <input 
+                                                    type="checkbox" 
+                                                    checked={showForceAnalysis} 
+                                                    onChange={(e) => setShowForceAnalysis(e.target.checked)} 
+                                                    className="w-5 h-5 accent-[#e76f51]" 
+                                                />
+                                                顯示當前「受力分析」
+                                            </label>
+                                        </div>
+
+                                        <div className="flex flex-wrap items-center justify-center gap-4">
+                                            <button 
+                                                onClick={handleRecord}
+                                                disabled={elapsedTime === 0}
+                                                className={`sketch-button font-bold py-2.5 px-6 text-sm sm:text-base flex items-center justify-center gap-2 transition-all ${elapsedTime === 0 ? 'bg-[#e8dcca] text-[#a66a4d] cursor-not-allowed opacity-60 shadow-none' : 'bg-[#e9c46a] text-[#5c4b3a] hover:brightness-105'}`}
+                                            >
+                                                <i className="fa-solid fa-clipboard-check"></i> 計算並記錄數據
+                                            </button>
+                                            <button 
+                                                onClick={handleResetAll}
+                                                className="sketch-button bg-[#e8dcca] text-[#5c4b3a] font-bold py-2.5 px-6 text-sm sm:text-base flex items-center justify-center gap-2 hover:bg-[#d4c5b9]"
+                                            >
+                                                <i className="fa-solid fa-rotate-left"></i> 全部重置
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* 展開的受力分析面板 */}
+                                    {showForceAnalysis && (
+                                        <div className="sketch-panel p-4 bg-[#fffdfa] border-2 border-[#a68a6d]">
+                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center font-bold text-[#5c4b3a]">
+                                                <div className="bg-[#fdf6e9] p-3 rounded-lg border border-[#d4c5b9]">
+                                                    <span className="block text-sm text-[#7d6554] mb-1">懸吊重力</span>
+                                                    <span className={`text-lg ${currentMotion.phase === 1 ? "text-[#e76f51]" : "text-[#a68a6d] line-through"}`}>
+                                                        {(hangingMass * G).toFixed(2)} N
+                                                    </span>
+                                                </div>
+                                                <div className="bg-[#fdf6e9] p-3 rounded-lg border border-[#d4c5b9]">
+                                                    <span className="block text-sm text-[#7d6554] mb-1">摩擦力</span>
+                                                    <span className="text-lg text-[#2a9d8f]">{(friction * cartMass * G).toFixed(2)} N</span>
+                                                </div>
+                                                <div className="bg-[#fdf6e9] p-3 rounded-lg border border-[#d4c5b9]">
+                                                    <span className="block text-sm text-[#7d6554] mb-1">細繩張力 (T)</span>
+                                                    <span className={`text-lg ${tension > 0 ? "text-[#81b29a]" : "text-[#a68a6d]"}`}>
+                                                        {tension.toFixed(2)} N
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* 閃光攝影圖數據推算結果：呈現各區間加速度與平均值 */}
+                                    {showCalculations && displayedCalculations && displayedCalculations.length > 0 && (
+                                        <div className="bg-[#f4ebd9] border-2 border-[#d4c5b9] rounded-xl p-4 text-[#5c4b3a] shadow-inner font-bold">
+                                            <h4 className="text-[#a66a4d] mb-3 text-lg flex items-center justify-between">
+                                                <span><i className="fa-solid fa-camera-retro mr-2"></i>閃光攝影圖數據推算 (Δt = 0.2s)</span>
+                                                <span className="text-xs bg-[#e8dcca] px-2.5 py-1 rounded-full text-[#7d6554]">
+                                                    演算法：各區間加速度取平均
+                                                </span>
+                                            </h4>
+                                            
+                                            <div className="space-y-4">
+                                                {/* 1. 各區段平均速度 */}
+                                                <div>
+                                                    <span className="block mb-2 text-[#7d6554]">各區段平均速度 (v = Δx / Δt)：</span>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {displayedCalculations.map((inv) => (
+                                                            <span key={`v-${inv.id}`} className={`px-3 py-1 rounded-lg border-2 text-sm ${inv.phase === 1 ? 'bg-[#fffdfa] border-[#d4c5b9]' : (inv.phase === 2 ? 'bg-[#e9c46a] bg-opacity-30 border-[#e9c46a]' : 'bg-[#e8dcca] bg-opacity-60 border-[#d4c5b9] text-[#8c7462]')}`}>
+                                                                v<sub>{inv.id}</sub> = {inv.v.toFixed(3)} m/s
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+
+                                                {/* 2. 相鄰區間加速度計算細節與平均加速度 */}
+                                                {(() => {
+                                                    const p1Int = displayedCalculations.filter(i => i.phase === 1);
+                                                    const p2Int = displayedCalculations.filter(i => i.phase === 2);
+                                                    const resP1 = computeIntervalAccelerations(p1Int);
+                                                    const resP2 = computeIntervalAccelerations(p2Int);
+
+                                                    return (
+                                                        <div className="space-y-3 pt-2 border-t border-[#d4c5b9]">
+                                                            {/* Phase 1 加速度 */}
+                                                            {resP1.aList.length > 0 && (
+                                                                <div>
+                                                                    <span className="block mb-1 text-sm text-[#7d6554]">
+                                                                        {isFixedTableHeight ? "Phase 1 (著地前完整區段 < 1m) 各區間加速度：" : "各區間加速度分別計算："}
+                                                                    </span>
+                                                                    <div className="flex flex-wrap gap-2 mb-2">
+                                                                        {resP1.aList.map((item, idx) => (
+                                                                            <span key={`a-p1-${idx}`} className="px-2.5 py-0.5 rounded bg-[#fffdfa] border border-[#d4c5b9] text-xs text-[#5c4b3a]">
+                                                                                a<sub>{item.fromId}→{item.toId}</sub> = {item.a.toFixed(3)} m/s²
+                                                                            </span>
+                                                                        ))}
+                                                                    </div>
+                                                                    <div className="bg-[#e76f51] text-white px-4 py-2 rounded-lg border-2 border-[#5c4b3a] shadow-sm flex items-center justify-between">
+                                                                        <span>
+                                                                            {isFixedTableHeight ? "Phase 1 採計平均加速度" : "實驗平均加速度"} 
+                                                                            <span className="text-xs ml-2 opacity-90">(共 {resP1.aList.length} 個區間平均)</span>
+                                                                        </span>
+                                                                        <span className="text-xl font-black">
+                                                                            a = {resP1.avgA.toFixed(3)} m/s²
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+
+                                                            {/* Phase 2 加速度（若開啟固定高度且已有 2 個以上完整區段） */}
+                                                            {isFixedTableHeight && resP2.aList.length > 0 && (
+                                                                <div className="mt-2">
+                                                                    <span className="block mb-1 text-sm text-[#7d6554]">
+                                                                        Phase 2 (著地後完整區段) 各區間加速度：
+                                                                    </span>
+                                                                    <div className="flex flex-wrap gap-2 mb-2">
+                                                                        {resP2.aList.map((item, idx) => (
+                                                                            <span key={`a-p2-${idx}`} className="px-2.5 py-0.5 rounded bg-[#e9c46a] bg-opacity-30 border border-[#e9c46a] text-xs text-[#5c4b3a]">
+                                                                                a<sub>{item.fromId}→{item.toId}</sub> = {item.a.toFixed(3)} m/s²
+                                                                            </span>
+                                                                        ))}
+                                                                    </div>
+                                                                    <div className="bg-[#2a9d8f] text-white px-4 py-2 rounded-lg border-2 border-[#5c4b3a] shadow-sm flex items-center justify-between">
+                                                                        <span>
+                                                                            Phase 2 (著地後) 平均加速度
+                                                                            <span className="text-xs ml-2 opacity-90">(共 {resP2.aList.length} 個區間平均)</span>
+                                                                        </span>
+                                                                        <span className="text-xl font-black">
+                                                                            a = {Math.abs(resP2.avgA) < 0.05 ? "0.000 (等速度)" : `${resP2.avgA.toFixed(3)} m/s²`}
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })()}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* 實驗紀錄表 */}
+                            {showRecords && (
+                                <div className="sketch-box p-6">
+                                    <div className="flex flex-wrap items-center justify-between gap-3 mb-4 border-b-2 border-[#d4c5b9] pb-2">
+                                        <h3 className="text-lg font-bold text-[#5c4b3a] flex items-center">
+                                            <span className="bg-[#81b29a] text-white border-2 border-[#5c4b3a] w-8 h-8 rounded-lg flex items-center justify-center mr-3"><i className="fa-solid fa-table"></i></span>
+                                            實驗數據紀錄
+                                        </h3>
+                                        <button 
+                                            onClick={handleExportCSV}
+                                            disabled={records.length === 0}
+                                            className={`sketch-button py-1.5 px-4 text-sm font-bold flex items-center gap-2 transition-all ${records.length === 0 ? 'bg-[#e8dcca] text-[#a66a4d] cursor-not-allowed opacity-60 shadow-none' : 'bg-[#2a9d8f] text-white hover:brightness-105'}`}
+                                            title={records.length === 0 ? "尚無數據可匯出" : "下載 CSV 檔"}
+                                        >
+                                            <i className="fa-solid fa-file-arrow-down"></i> 下載實驗數據 (.csv)
+                                        </button>
+                                    </div>
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-center border-collapse">
+                                            <thead>
+                                                <tr className="bg-[#fdf6e9] border-b-2 border-[#a68a6d]">
+                                                    <th className="p-3 font-bold text-[#5c4b3a] border-r-2 border-white">實驗次數</th>
+                                                    <th className="p-3 font-bold text-[#5c4b3a] border-r-2 border-white">砝碼質量 (F)</th>
+                                                    <th className="p-3 font-bold text-[#5c4b3a] border-r-2 border-white">滑車質量 (M)</th>
+                                                    <th className="p-3 font-bold text-[#5c4b3a] border-r-2 border-white">(滑車+砝碼)質量 (m)</th>
+                                                    <th className="p-3 font-bold text-[#e76f51] border-r-2 border-white">實驗平均加速度 (a)</th>
+                                                    <th className="p-3 font-bold text-[#5c4b3a]">固定高度</th>
+                                                    <th className="p-3 font-bold text-[#5c4b3a]">操作</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {records.length === 0 ? (
+                                                    <tr>
+                                                        <td colSpan="7" className="p-6 text-center text-[#a68a6d] font-bold border-b border-[#e8dcca] border-dashed">
+                                                            <i className="fa-solid fa-clipboard-list text-2xl mb-2 block"></i>
+                                                            尚未記錄任何數據，請操作上方「計算並記錄數據」按鈕。
+                                                        </td>
+                                                    </tr>
+                                                ) : (
+                                                    records.map(record => (
+                                                        <tr key={record.id} className="border-b border-[#e8dcca] border-dashed hover:bg-[#fffdfa] transition-colors">
+                                                            <td className="p-3 text-[#5c4b3a] font-bold bg-[#fdf6e9] bg-opacity-50">{record.id}</td>
+                                                            <td className="p-3 text-[#5c4b3a]">{record.hangingMass.toFixed(1)} kg</td>
+                                                            <td className="p-3 text-[#5c4b3a]">{record.cartMass.toFixed(1)} kg</td>
+                                                            <td className="p-3 text-[#5c4b3a] font-bold">{record.totalMass.toFixed(1)} kg</td>
+                                                            <td className="p-3 text-[#e76f51] font-black">{record.acceleration.toFixed(3)} m/s²</td>
+                                                            <td className="p-3 text-[#5c4b3a]">{record.isFixed ? "開啟" : "-"}</td>
+                                                            <td className="p-3">
+                                                                <button 
+                                                                    onClick={() => handleDeleteRecord(record.id)}
+                                                                    className="w-8 h-8 rounded-full bg-[#f4ebd9] text-[#e76f51] hover:bg-[#e76f51] hover:text-white transition-colors flex items-center justify-center mx-auto border border-[#d4c5b9]"
+                                                                    title="刪除此筆紀錄"
+                                                                >
+                                                                    <i className="fa-solid fa-trash-can"></i>
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    ))
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* 運動圖表 */}
+                            {showGraphs && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {(() => {
+                                        const maxTime = 4.8;
+                                        const maxV = 6.0;
+                                        const maxA = 8.0;
+                                        const minA = -8.0; 
+                                        const rangeA = maxA - minA; 
+
+                                        const graphRenderLimit = !showGraphs 
+                                            ? 0 
+                                            : (graphMode === 'drawing' ? graphRenderTime : elapsedTime);
+
+                                        const rawPts = [];
+                                        if (graphRenderLimit > 0) {
+                                            for (let t = 0; t <= graphRenderLimit; t += 0.05) {
+                                                rawPts.push({ t, ...getMotionData(t) });
+                                            }
+                                            if (isFixedTableHeight && t1 > 0 && t1 <= graphRenderLimit) {
+                                                rawPts.push({ t: t1 - 0.001, ...getMotionData(t1 - 0.001) });
+                                                rawPts.push({ t: t1 + 0.001, ...getMotionData(t1 + 0.001) });
+                                            }
+                                            const lastT = rawPts.length > 0 ? rawPts[rawPts.length - 1].t : 0;
+                                            if (lastT < graphRenderLimit) {
+                                                rawPts.push({ t: graphRenderLimit, ...getMotionData(graphRenderLimit) });
+                                            }
+                                        }
+                                        
+                                        rawPts.sort((a, b) => a.t - b.t);
+                                        const validPts = [];
+                                        for (const p of rawPts) {
+                                            if (p.t <= maxTime) {
+                                                validPts.push(p);
+                                            } else {
+                                                validPts.push({ t: maxTime, ...getMotionData(maxTime) });
+                                                break;
+                                            }
+                                        }
+
+                                        const getPx = (t) => Math.min((t / maxTime) * 100, 100);
+                                        const getVy = (v) => Math.max(0, 100 - (v / maxV) * 100);
+                                        const getAy = (a) => Math.min(100, Math.max(0, 100 - ((a - minA) / rangeA) * 100));
+
+                                        return (
+                                            <>
+                                                <div className="sketch-box p-6">
+                                                    <h3 className="text-lg font-bold text-[#5c4b3a] mb-4 flex items-center">
+                                                        <span className="bg-[#e9c46a] text-[#5c4b3a] border-2 border-[#5c4b3a] w-8 h-8 rounded-lg flex items-center justify-center mr-3"><i className="fa-solid fa-chart-line"></i></span>
+                                                        速度 - 時間圖 (v-t)
+                                                    </h3>
+                                                    <div className="w-full h-48 bg-[#fdfdfc] relative border-l-4 border-b-4 border-[#5c4b3a] ml-6 mb-6 rounded-bl-md">
+                                                        <svg className="w-full h-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none">
+                                                            {[0.25, 0.5, 0.75, 1].map(r => (
+                                                                <g key={`vy-${r}`}>
+                                                                    <line x1="0" y1={100 - r * 100} x2="100" y2={100 - r * 100} stroke="#e8dcca" strokeWidth="1" strokeDasharray="4 2" />
+                                                                    <text x="-4" y={100 - r * 100 + 2} textAnchor="end" fill="#a68a6d" fontSize="6" fontWeight="bold">{(maxV * r).toFixed(1)}</text>
+                                                                </g>
+                                                            ))}
+                                                            {[0.25, 0.5, 0.75, 1].map(r => (
+                                                                <g key={`vx-${r}`}>
+                                                                    <line x1={r * 100} y1="0" x2={r * 100} y2="100" stroke="#e8dcca" strokeWidth="1" strokeDasharray="4 2" />
+                                                                    <text x={r * 100} y="110" textAnchor="middle" fill="#a68a6d" fontSize="6" fontWeight="bold">{(maxTime * r).toFixed(1)}</text>
+                                                                </g>
+                                                            ))}
+                                                            {validPts.length > 0 && (
+                                                                <path 
+                                                                    d={validPts.map((p, i) => `${i===0?'M':'L'} ${getPx(p.t)},${getVy(p.v)}`).join(' ')} 
+                                                                    fill="none" stroke="#2a9d8f" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" 
+                                                                />
+                                                            )}
+                                                            {validPts.length > 0 && (
+                                                                <circle cx={getPx(validPts[validPts.length-1].t)} cy={getVy(validPts[validPts.length-1].v)} r="3.5" fill="#2a9d8f" stroke="#5c4b3a" strokeWidth="1.5" />
+                                                            )}
+                                                        </svg>
+                                                        <div className="absolute -top-6 -left-8 text-sm text-[#5c4b3a] font-bold">v (m/s)</div>
+                                                        <div className="absolute -bottom-10 right-0 text-sm text-[#5c4b3a] font-bold">t (s)</div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="sketch-box p-6">
+                                                    <h3 className="text-lg font-bold text-[#5c4b3a] mb-4 flex items-center">
+                                                        <span className="bg-[#f4a261] text-[#5c4b3a] border-2 border-[#5c4b3a] w-8 h-8 rounded-lg flex items-center justify-center mr-3"><i className="fa-solid fa-chart-area"></i></span>
+                                                        加速度 - 時間圖 (a-t)
+                                                    </h3>
+                                                    <div className="w-full h-48 bg-[#fdfdfc] relative border-l-4 border-b-4 border-[#5c4b3a] ml-6 mb-6 rounded-bl-md">
+                                                        <svg className="w-full h-full overflow-visible" viewBox="0 0 100 100" preserveAspectRatio="none">
+                                                            {[-8, -4, 0, 4, 8].map(val => {
+                                                                const py = 100 - ((val - minA) / rangeA) * 100;
+                                                                return (
+                                                                    <g key={`ay-${val}`}>
+                                                                        <line x1="0" y1={py} x2="100" y2={py} stroke="#e8dcca" strokeWidth="1" strokeDasharray={val === 0 ? "none" : "4 2"} />
+                                                                        <text x="-4" y={py + 2} textAnchor="end" fill="#a68a6d" fontSize="6" fontWeight="bold">{val.toFixed(1)}</text>
+                                                                    </g>
+                                                                );
+                                                            })}
+                                                            {[0.25, 0.5, 0.75, 1].map(r => (
+                                                                <g key={`ax-${r}`}>
+                                                                    <line x1={r * 100} y1="0" x2={r * 100} y2="100" stroke="#e8dcca" strokeWidth="1" strokeDasharray="4 2" />
+                                                                    <text x={r * 100} y="110" textAnchor="middle" fill="#a68a6d" fontSize="6" fontWeight="bold">{(maxTime * r).toFixed(1)}</text>
+                                                                </g>
+                                                            ))}
+                                                            
+                                                            {validPts.length > 0 && (
+                                                                <path 
+                                                                    d={validPts.map((p, i) => {
+                                                                        const px = getPx(p.t);
+                                                                        const py = getAy(p.a);
+                                                                        if (i === 0) return `M ${px},${py}`;
+                                                                        const prevPx = getPx(validPts[i-1].t);
+                                                                        return `L ${prevPx},${py} L ${px},${py}`; 
+                                                                    }).join(' ')} 
+                                                                    fill="none" stroke="#e76f51" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" 
+                                                                />
+                                                            )}
+                                                            {validPts.length > 0 && (
+                                                                <circle cx={getPx(validPts[validPts.length-1].t)} cy={getAy(validPts[validPts.length-1].a)} r="3.5" fill="#e76f51" stroke="#5c4b3a" strokeWidth="1.5" />
+                                                            )}
+                                                        </svg>
+                                                        <div className="absolute -top-6 -left-8 text-sm text-[#5c4b3a] font-bold">a (m/s²)</div>
+                                                        <div className="absolute -bottom-10 right-0 text-sm text-[#5c4b3a] font-bold">t (s)</div>
+                                                    </div>
+                                                </div>
+                                            </>
+                                        );
+                                    })()}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <div style={{ textAlign: 'right', margin: '40px 0 20px 0', paddingRight: '1rem', fontSize: '0.9em', color: '#666', width: '100%' }}>
+                        by Jay`s Lab 紅樓老頭子 系統版本：v1.26
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
 </body>
 </html>
