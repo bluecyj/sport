@@ -1,0 +1,1291 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>伽利略的斜面實驗（自學引導探究版）</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC&display=swap" rel="stylesheet">
+<!-- 引入 html2pdf.js 用於在純前端一鍵生成並下載 PDF 學習報告 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<style>
+:root{
+  --paper:#F4E8D0; --ink:#4A3728; --ink2:#7A6248;
+  --red:#B5442A; --blue:#2E4A8B; --green:#2D6A4F; --guide-bg:rgba(46,74,139,0.06);
+  --font-hand:"LXGW WenKai TC","DFKai-SB","BiauKai","標楷體","Noto Sans TC",sans-serif;
+  --font-num:"Segoe UI","Helvetica Neue",Arial,"Noto Sans TC",sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{
+  background-color:var(--paper);
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .09 0'/></filter><rect width='220' height='220' filter='url(%23n)'/></svg>");
+  color:var(--ink); font-family:var(--font-hand); font-size:16px; line-height:1.4;
+  -webkit-tap-highlight-color:transparent;
+}
+.app{display:grid;gap:10px;padding:10px;grid-template-columns:1fr;
+  grid-template-areas:"head" "ctrl" "scene" "table" "chart";}
+.head{grid-area:head}.ctrl{grid-area:ctrl}.scene{grid-area:scene}.tbl{grid-area:table}.cht{grid-area:chart}
+
+.head{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:6px 14px;padding:2px 6px}
+.head h1{margin:0;font-size:1.6rem;font-weight:normal;letter-spacing:.04em}
+.head .sub{color:var(--ink2);font-size:.92rem;flex:1}
+
+.panel{position:relative;display:flex;flex-direction:column;min-height:0;padding:10px 12px;
+  background:rgba(255,250,240,.55);border:2px solid var(--ink);
+  border-radius:12px 9px 14px 8px / 8px 14px 9px 12px;}
+.panel::after{content:"";position:absolute;inset:3px;pointer-events:none;
+  border:1px solid rgba(74,55,40,.25);border-radius:10px 8px 12px 7px / 7px 12px 8px 10px;}
+.ph{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:6px}
+.title{font-size:1.15rem}
+.tools{display:flex;gap:6px;flex-wrap:wrap}
+
+.btn{font-family:inherit;font-size:0.95rem;color:var(--ink);background:transparent;cursor:pointer;
+  min-height:38px;padding:5px 12px;border:2px solid var(--ink);
+  border-radius:255px 15px 225px 15px / 15px 225px 15px 255px;
+  transition:transform .12s,background .12s,border-color .12s;touch-action:manipulation;user-select:none}
+.btn:hover:not(:disabled){transform:rotate(-1.2deg) translateY(-1px)}
+.btn:active:not(:disabled){transform:scale(.97)}
+.btn.on{background:var(--ink);color:var(--paper)}
+.btn:disabled{opacity:.35;cursor:not-allowed;transform:none}
+.btn.sm{font-size:.85rem;min-height:32px;padding:3px 9px}
+.btn.go{font-size:1rem;min-height:38px;margin-top:0;font-weight:bold;
+  background:rgba(181,68,42,.12);border-color:var(--red);color:var(--red);}
+.btn.go:disabled{background:transparent;border-color:var(--ink2);color:var(--ink2)}
+.btn.report{background:rgba(46,74,139,0.12);border-color:var(--blue);color:var(--blue);font-weight:bold;width:100%;margin-top:8px}
+
+.guide-box{background:#FFFDF7;border:2px dashed var(--blue);border-radius:12px;padding:12px;margin-bottom:12px;position:relative}
+.guide-header{display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:6px}
+.guide-title{font-size:1.05rem;font-weight:bold;color:var(--blue)}
+.guide-badge{font-size:0.8rem;background:var(--blue);color:white;padding:2px 8px;border-radius:10px;font-family:var(--font-num)}
+.guide-task{font-size:.92rem;color:var(--ink);margin-bottom:8px;line-height:1.45;background:rgba(46,74,139,.05);padding:8px;border-radius:8px}
+.guide-task b{color:var(--red)}
+
+.task-status{font-size:.85rem;color:var(--ink2);margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.task-status.done{color:var(--green);font-weight:bold}
+
+.quiz-box{background:rgba(181,68,42,0.04);border:1.5px solid rgba(181,68,42,0.3);border-radius:10px;padding:10px;margin-top:8px;animation:quizFadeIn .35s ease-out}
+@keyframes quizFadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.quiz-q{font-size:.92rem;font-weight:bold;color:var(--ink);margin-bottom:8px;line-height:1.4}
+.quiz-opts{display:flex;flex-direction:column;gap:6px}
+.opt-btn{text-align:left;font-family:inherit;font-size:.88rem;padding:7px 10px;border:1.5px solid var(--ink2);border-radius:8px;background:rgba(255,255,255,0.7);cursor:pointer;line-height:1.35;transition:all .15s}
+.opt-btn:hover:not(.locked){background:rgba(244,232,208,0.9);border-color:var(--ink)}
+.opt-btn.correct{background:rgba(45,106,79,0.15);border-color:var(--green);color:var(--green);font-weight:bold}
+.opt-btn.wrong{background:rgba(181,68,42,0.12);border-color:var(--red);color:var(--red)}
+.quiz-feedback{margin-top:8px;font-size:.88rem;line-height:1.4;display:none;padding:6px 8px;border-radius:6px}
+.quiz-feedback.show{display:block}
+.quiz-feedback.ok{background:rgba(45,106,79,0.1);color:var(--green);border-left:3px solid var(--green)}
+.quiz-feedback.err{background:rgba(181,68,42,0.1);color:var(--red);border-left:3px solid var(--red)}
+
+.g-next-btn{width:100%;margin-top:10px;background:var(--green);color:#fff;border-color:var(--green);font-size:1.05rem;font-weight:bold;animation:gPulse 2s infinite}
+@keyframes gPulse{0%{box-shadow:0 0 0 0 rgba(45,106,79,.4)}70%{box-shadow:0 0 0 7px rgba(45,106,79,0)}100%{box-shadow:0 0 0 0 rgba(45,106,79,0)}}
+
+/* 階段 7 心得填寫區樣式 */
+.reflection-box{display:none;margin-top:10px;border-top:1.5px dashed var(--ink2);padding-top:10px}
+.reflect-field{margin-bottom:10px}
+.reflect-label{font-size:.9rem;font-weight:bold;color:var(--ink);margin-bottom:4px;display:flex;align-items:center;gap:4px}
+.reflect-input{width:100%;font-family:inherit;font-size:.9rem;padding:7px 9px;border:1.5px solid var(--ink2);border-radius:8px;background:rgba(255,255,255,.9);color:var(--ink);resize:vertical;line-height:1.4}
+.reflect-input:focus{outline:none;border-color:var(--blue);background:#fff}
+
+.locked{opacity:0.4;pointer-events:none;filter:grayscale(85%)}
+.grp{margin-bottom:10px;transition:opacity 0.25s}
+.lbl{font-size:.9rem;color:var(--ink2);margin-bottom:3px}
+.row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.row .btn.seg{flex:1;min-width:65px}
+.dot{display:inline-block;border-radius:50%;background:radial-gradient(circle at 35% 35%,#E8B878,#B87333 60%,#7A4A1E);vertical-align:middle;margin-right:5px;border:1px solid var(--ink)}
+.dot.s{width:11px;height:11px}.dot.l{width:18px;height:18px}
+.stepper .btn{width:42px;padding:0;font-size:1.2rem;flex:none}
+.stepper .val{flex:1;text-align:center;font-family:var(--font-num);font-size:1.25rem;border-bottom:2px dashed var(--ink2);padding:2px}
+.tip{font-size:.82rem;color:var(--ink2);margin-top:3px;line-height:1.3}
+
+.swrap,.cwrap{position:relative;width:100%}
+.swrap::before{content:"";display:block;padding-top:42%}
+.cwrap::before{content:"";display:block;padding-top:70%}
+.swrap canvas,.cwrap canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+#scene{touch-action:pan-y;cursor:pointer}
+.portrait-tip{display:none;text-align:center;font-size:.82rem;color:var(--ink2);margin-top:4px}
+.scene-header { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 5px; z-index: 10; }
+
+@media (max-width:640px) and (orientation:portrait){.portrait-tip{display:block}}
+
+.tscroll{flex:1;min-height:0;overflow:auto;border-left:2px solid rgba(181,68,42,.45);padding-left:8px}
+table{width:100%;border-collapse:collapse;font-size:.92rem}
+th,td{padding:4px 6px;text-align:center;border-bottom:1px dashed rgba(74,55,40,.35);white-space:nowrap}
+th{font-weight:normal;border-bottom:2px solid var(--ink);position:sticky;top:0;background:rgba(250,243,228,.97)}
+tbody tr{cursor:pointer}
+tbody tr:hover,tbody tr.hl{background:rgba(255,215,110,.5)}
+.num{font-family:var(--font-num)}
+.w2{display:none}
+table.show-w2 .w2{display:table-cell}
+.chip{display:inline-block;padding:0 8px;border-radius:10px;color:#fff;font-size:.82rem;font-family:var(--font-num)}
+.a5{background:var(--red)}.a10{background:var(--blue)}
+.del{background:none;border:none;color:var(--red);font-size:1rem;cursor:pointer;padding:2px 8px;min-height:28px}
+.empty{color:var(--ink2);text-align:center;padding:20px 8px;font-size:.9rem}
+
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:.85rem;color:var(--ink2);margin-bottom:2px}
+.sw{display:inline-block;width:12px;height:3px;vertical-align:middle;margin-right:4px}
+.sw.r{background:var(--red)}.sw.b{background:var(--blue)}
+.hint{font-size:.82rem;color:var(--ink2);margin-bottom:3px;line-height:1.35}
+.hint .cnt{font-family:var(--font-num);font-weight:bold}
+.hint.warn{color:var(--red)}
+
+.modal{position:fixed;inset:0;background:rgba(74,55,40,.5);display:flex;align-items:center;justify-content:center;padding:16px;z-index:100}
+.modal[hidden]{display:none}
+.mbox{background:var(--paper);border:2px solid var(--ink);border-radius:12px 9px 14px 8px / 8px 14px 9px 12px;
+  padding:18px 20px;max-width:420px;width:100%;font-size:1rem;box-shadow:3px 4px 14px rgba(0,0,0,.3)}
+.mbox .row{justify-content:flex-end;margin-top:14px}
+.mbox-title{font-size:1.15rem;font-weight:bold;color:var(--ink);margin-bottom:10px;border-bottom:1.5px dashed var(--ink2);padding-bottom:5px}
+.stu-form-group{margin-bottom:10px;text-align:left}
+.stu-form-group label{display:block;font-size:.88rem;color:var(--ink2);margin-bottom:3px}
+.stu-form-group input{width:100%;font-family:inherit;font-size:.95rem;padding:7px 10px;border:1.5px solid var(--ink2);border-radius:8px;background:#FFFDF7}
+.stu-form-group input:focus{border-color:var(--blue);outline:none}
+
+/* 隱藏的 PDF 報告模版樣式 */
+#pdfReportContent{position:fixed;left:-9999px;top:-9999px;width:750px;background:#FFFDF7;color:#333;padding:32px 36px;font-family:"Noto Sans TC","Microsoft JhengHei",sans-serif;box-sizing:border-box}
+.rpt-header{text-align:center;border-bottom:3px double #4A3728;padding-bottom:12px;margin-bottom:16px}
+.rpt-header h2{margin:0 0 6px 0;font-size:24px;color:#2E4A8B}
+.rpt-meta{display:flex;justify-content:space-between;font-size:14px;color:#555;margin-top:8px}
+.rpt-box{border:1px solid #C9A06A;border-radius:8px;padding:12px 14px;margin-bottom:14px;background:#FFFDF9}
+.rpt-box h3{margin:0 0 8px 0;font-size:16px;color:#B5442A;border-bottom:1px dashed #D0B896;padding-bottom:4px}
+.rpt-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}
+.rpt-table th,.rpt-table td{border:1px solid #D0B896;padding:6px;text-align:left}
+.rpt-table th{background:#F4E8D0;color:#4A3728;font-weight:bold}
+.rpt-badge{display:inline-block;padding:1px 6px;border-radius:4px;font-size:11px;font-weight:bold}
+.rpt-badge.ok{background:#E2F0D9;color:#2D6A4F}
+.rpt-badge.cnt{background:#FCE4D6;color:#B5442A}
+.rpt-text-block{background:#FBF8F1;border:1px solid #E8DCBE;border-radius:6px;padding:8px 10px;font-size:13.5px;line-height:1.5;white-space:pre-wrap;margin-top:4px}
+
+/* 報告預覽彈窗專屬樣式 */
+.preview-modal{position:fixed;inset:0;background:rgba(40,30,20,.65);display:flex;flex-direction:column;align-items:center;padding:12px;z-index:200;overflow-y:auto}
+.preview-modal[hidden]{display:none}
+.preview-card{background:#FBF6EE;border:2px solid var(--ink);border-radius:12px;max-width:820px;width:100%;display:flex;flex-direction:column;max-height:92vh;box-shadow:0 8px 24px rgba(0,0,0,0.35)}
+.preview-topbar{padding:12px 16px;border-bottom:2px solid var(--ink);background:rgba(255,250,240,.9);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+.preview-title{font-size:1.15rem;font-weight:bold;color:var(--ink)}
+.preview-actions{display:flex;gap:8px}
+.preview-body{padding:16px;overflow-y:auto;flex:1;background:#EAE2D2}
+.preview-paper{background:#FFFDF7;color:#333;padding:28px 32px;box-shadow:0 2px 10px rgba(0,0,0,0.1);border-radius:4px;border:1px solid #D0B896;font-family:"Noto Sans TC","Microsoft JhengHei",sans-serif}
+.rpt-step-item{background:#FFFDF9;border:1px solid #D8C7B0;border-radius:8px;padding:10px 12px;margin-bottom:10px}
+.rpt-step-header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px dashed #D0B896;padding-bottom:5px;margin-bottom:6px}
+.rpt-step-title{font-size:14px;font-weight:bold;color:#2E4A8B}
+.rpt-q-desc{font-size:13px;color:#4A3728;margin:4px 0 6px 0;line-height:1.4}
+.rpt-q-ans{font-size:12.5px;color:#2D6A4F;background:rgba(45,106,79,0.08);padding:5px 8px;border-radius:6px;line-height:1.4}
+.rpt-sub-badge{font-size:11px;padding:1px 6px;border-radius:4px;background:#EDE4D4;color:#555}
+
+@media (min-width:1024px){
+  .app{height:100vh;height:100dvh;
+    grid-template-columns:320px .82fr 1.18fr;
+    grid-template-rows:auto minmax(0,46fr) minmax(0,54fr);
+    grid-template-areas:"head head head" "ctrl scene scene" "table table chart";}
+  .panel{overflow:hidden}
+  .ctrl{overflow:auto}
+  .swrap,.cwrap{flex:1;min-height:0}
+  .swrap::before,.cwrap::before{display:none}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="head">
+    <h1>伽利略的斜面實驗</h1>
+    <div class="sub">(自學引導探究版)</div>
+    <button class="btn sm" id="snd" aria-label="音效開關">🔊 音效</button>
+  </header>
+
+  <section class="panel ctrl">
+    <!-- 引導學習與檢核卡片 -->
+    <div class="guide-box" id="guideBox">
+      <div class="guide-header">
+        <span class="guide-title" id="gTitle">載入中...</span>
+        <span class="guide-badge" id="gBadge">階段 1/8</span>
+      </div>
+      <div class="guide-task" id="gTask">正在初始化學習任務...</div>
+      <div class="task-status" id="taskStatus">⏳ 請先進行實驗操作</div>
+      
+      <!-- 階段推論檢核選擇題 (階段 1~6) -->
+      <div class="quiz-box" id="quizBox" style="display:none">
+        <div class="quiz-q" id="quizQ">問題載入中...</div>
+        <div class="quiz-opts" id="quizOpts"></div>
+        <div class="quiz-feedback" id="quizFeedback"></div>
+      </div>
+
+      <!-- 新增：階段 7 學習收穫填寫區 -->
+      <div class="reflection-box" id="reflectionBox">
+        <div class="reflect-field">
+          <div class="reflect-label">📝 我的發現：</div>
+          <textarea class="reflect-input" id="reflectDiscovery" rows="3" placeholder="e.g 1.球滾下的距離與_____成正比。2.球滾下相同距離，斜面角度____________。"></textarea>
+        </div>
+        <div class="reflect-field">
+          <div class="reflect-label">💡 我的心得感想：</div>
+          <textarea class="reflect-input" id="reflectThoughts" rows="3" placeholder="寫下你在本實驗中的收穫、觀察或想法..."></textarea>
+        </div>
+        <button class="btn report" id="btnOpenReportModal">📄 一鍵生成學習報告 (匯出 PDF)</button>
+      </div>
+
+      <button class="btn g-next-btn" id="gNext" style="display:none">✔ 進入下一步</button>
+    </div>
+
+    <!-- 實驗控制面板 -->
+    <div class="grp locked" id="grp-real">
+      <div class="lbl">實驗條件</div>
+      <div class="row">
+        <button class="btn seg on" data-real="0">理想狀態</button>
+        <button class="btn seg" data-real="1">真實世界</button>
+      </div>
+      <div class="tip" id="realTip">理想狀態：沒有誤差，同條件每次結果相同</div>
+    </div>
+    <div class="grp locked" id="grp-angle">
+      <div class="lbl">斜面傾角</div>
+      <div class="row">
+        <button class="btn seg on" data-angle="5">5°</button>
+        <button class="btn seg" data-angle="10">10°</button>
+      </div>
+    </div>
+    <div class="grp locked" id="grp-ball">
+      <div class="lbl">銅球大小</div>
+      <div class="row">
+        <button class="btn seg on" data-ball="small"><span class="dot s"></span>小球</button>
+        <button class="btn seg" data-ball="large"><span class="dot l"></span>大球</button>
+      </div>
+    </div>
+    <div class="grp" id="grp-dist">
+      <div class="lbl">釋放距離（離斜面底端）</div>
+      <div class="row stepper">
+        <button class="btn" id="sMinus" aria-label="減少">−</button>
+        <div class="val" id="sVal">0.5 m</div>
+        <button class="btn" id="sPlus" aria-label="增加">＋</button>
+      </div>
+      <div class="tip">可點擊按鈕或直接在右側斜面上拖曳釋放閘</div>
+    </div>
+  </section>
+
+  <section class="panel scene">
+    <div class="scene-header">
+       <button class="btn go" id="go">▶ 開始滾動</button>
+    </div>
+    <div class="swrap"><canvas id="scene"></canvas></div>
+    <div class="portrait-tip">手機與平板建議直向使用，斜面與水鐘會更清楚</div>
+  </section>
+
+  <section class="panel tbl">
+    <div class="ph">
+      <span class="title">實驗記錄表</span>
+      <div class="tools">
+        <button class="btn sm" id="clear">全部清除</button>
+        <button class="btn sm" id="csv">匯出 CSV</button>
+      </div>
+    </div>
+    <div class="tscroll">
+      <table id="tab">
+        <thead><tr><th>#</th><th>傾角</th><th>銅球</th><th>距離 (m)</th><th>水重 (g)</th><th class="w2">水重² (g²)</th><th></th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+      <div class="empty" id="empty">尚無紀錄。請依照左側探究指引，開始第一次滾動實驗！</div>
+    </div>
+  </section>
+
+  <section class="panel cht">
+    <div class="ph">
+      <span class="title">關係圖（推導規律）</span>
+      <div class="tools" id="grp-mode">
+        <button class="btn sm seg on" data-mode="w" id="mode-w">橫軸：水重</button>
+        <button class="btn sm seg" data-mode="w2" id="mode-w2">橫軸：水重²</button>
+        <button class="btn sm" id="trend" disabled>畫趨勢線</button>
+      </div>
+    </div>
+    <div class="legend">
+      <span><i class="sw r"></i>5°</span><span><i class="sw b"></i>10°</span>
+      <span>○ 小球</span><span>● 大球</span>
+    </div>
+    <div class="hint" id="hint"></div>
+    <div class="cwrap"><canvas id="chart"></canvas></div>
+  </section>
+</div>
+
+<!-- 條件重複提示彈窗 -->
+<div class="modal" id="modal" hidden>
+  <div class="mbox">
+    <p style="margin:0">這個條件在「理想狀態」模式下已經測量過了，每次結果都會完全相同。<br>請試著改變「釋放距離」再測量一次以收集不同數據！</p>
+    <div class="row">
+      <button class="btn on" id="mNo">我知道了</button>
+    </div>
+  </div>
+</div>
+
+<!-- 新增：學生資料輸入彈窗 -->
+<div class="modal" id="studentModal" hidden>
+  <div class="mbox">
+    <div class="mbox-title">🎓 生成學習報告（填寫學生資訊）</div>
+    <div class="stu-form-group">
+      <label for="stuClass">班級：</label>
+      <input type="text" id="stuClass" placeholder="例如：801 或 八年一班">
+    </div>
+    <div class="stu-form-group">
+      <label for="stuSeat">座號：</label>
+      <input type="text" id="stuSeat" placeholder="例如：15">
+    </div>
+    <div class="stu-form-group">
+      <label for="stuName">姓名：</label>
+      <input type="text" id="stuName" placeholder="例如：王小明">
+    </div>
+    <div class="row">
+      <button class="btn sm" id="btnCancelModal">取消</button>
+      <button class="btn sm go" id="btnDoExportPdf">✔ 下一步：預覽報告</button>
+    </div>
+  </div>
+</div>
+
+<!-- 新增：報告全螢幕預覽彈窗 -->
+<div class="preview-modal" id="previewModal" hidden>
+  <div class="preview-card">
+    <div class="preview-topbar">
+      <div class="preview-title">📑 學習報告預覽確認</div>
+      <div class="preview-actions">
+        <button class="btn sm" id="btnClosePreview">返回修改</button>
+        <button class="btn sm go" id="btnConfirmDownloadPdf">📥 確認無誤，下載 PDF</button>
+      </div>
+    </div>
+    <div class="preview-body">
+      <div class="preview-paper" id="previewPaperContent">
+        <!-- 報告預覽內容會動態生成於此 -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 新增：隱藏的 PDF 渲染容器 -->
+<div id="pdfReportContent"></div>
+
+<!-- 簽名檔 -->
+<div style="text-align: right; margin-top: 40px; padding-bottom: 20px; font-size: 0.9em; color: #666;">
+  by Jay`s Lab 紅樓老頭子 系統版本：v1.4
+</div>
+
+<script>
+(function(){
+'use strict';
+const INK='#4A3728', WOOD='#C9A06A', WOODD='#8B6A3E', RED='#B5442A', BLUE='#2E4A8B', GREEN='#2D6A4F', WATER='rgba(78,160,165,0.72)';
+const FONT='"LXGW WenKai TC","DFKai-SB","BiauKai","Noto Sans TC",sans-serif';
+const FONTN='"Segoe UI","Helvetica Neue",Arial,sans-serif';
+const G=9.8, FLOW=20;                       // 水鐘固定流速 20 g/s
+const REACT_SD=0.12, FLOW_SD=0.015;         // 真實世界模式下的微小擾動
+const MIN_PTS=3;
+const SC={x0:320,y0:352,len:600,thick:14,end:7.45};
+const PXM=SC.len/7, GY=384;
+const B={x:220,beamY:290,half:52,drop:60};
+const PLACE_MS=650;
+
+const state={angle:5,ball:'small',s:0.5,real:false,phase:'idle',t0:0,T:0,wFinal:0,traveled:0,water:0,
+  placeT0:0,placeP:0,stopT0:0,weighT0:0,cup:{x:125,yb:GY},tilt:0,weightOn:false,tag:null,
+  records:[],mode:'w',trend:false,trendP:0,hl:null,sound:true,nextId:1,
+  step:1, stepAnswered:false,
+  quizLog: {}, // 紀錄學生各階段作答狀況 { step: { question, attempts, passed, selected: [] } }
+  discoveryText: '',
+  thoughtsText: ''
+};
+let view={k:1,ox:0,oy:0};
+const $=id=>document.getElementById(id);
+
+const GUIDES = [
+  {
+    step: 1,
+    title: "1. 認識計時工具：水鐘",
+    task: "在 17 世紀初，伽利略想知道「物體從空中自由落下時，落下的距離和時間有什麼規律。」但自由落體落下速度太快，而且當時沒有秒錶，無法精確計時。於是他把物體落下的速度「放慢」，就是讓銅球沿傾角不大的斜面滾下，並用水鐘計時。他的做法是，銅球開始向下滾動的瞬間讓水流進杯子，球到達底端的瞬間就關掉水，然後秤量杯中水的重量。<br>👉 請點擊<b>「開始滾動」</b>，觀察球開始滾動到停止時，水鐘與天平如何運作。",
+    isTaskDone: () => state.records.length >= 1,
+    taskDoneText: "✔ 已完成第一次滾動與水鐘秤重，並仔細觀察！",
+    taskPendingText: "⏳ 請點擊「開始滾動」完成第一次觀察",
+    quiz: {
+      question: "【推論思考】水鐘是以穩定的速率流出水（相同時間流出相同水量），那麼在銅球滾動的過程中，杯子收集到的「水重」，在物理學上可以代表什麼意義？",
+      options: [
+        { text: "A. 代表銅球受到的摩擦阻力大小", correct: false, tip: "摩擦力通常與表面粗糙程度有關，水鐘流出的水並未直接接觸滾動表面喔。" },
+        { text: "B. 代表銅球滾動過程所經歷的「時間長短」", correct: true, tip: "答對了！因為水流速率固定，水量越多，代表歷經的時間越長，所以「水重」可以直接代表「時間」！" },
+        { text: "C. 代表銅球本身的重量", correct: false, tip: "銅球本身重量是固定的，但不同距離滾動收集到的水量不同喔。" }
+      ]
+    },
+    unlocks: { real: false, angle: false, ball: false, mode: false, dist: true }
+  },
+  {
+    step: 2,
+    title: "2. 固定 5° 傾角，改變球滾下的距離，尋找銅球滾下的距離與流出的水重之間的規律",
+    task: "👉 調整釋放距離（如 0.5m、2.0m、4.5m），收集至少 <b>5筆以上不同的距離的</b>數據。<br>👉 收集完數據後，請點擊關係圖右上角的<b>「畫趨勢線」按鈕，</b>觀察橫軸為「水重」時，趨勢線是否呈現「 y = A·x² 」的二次曲線。",
+    isTaskDone: () => {
+      const dists = new Set(state.records.filter(r=>r.angle===5 && !r.real).map(r=>r.s));
+      return dists.size >= 3 && state.trend && state.mode === 'w';
+    },
+    taskDoneText: "✔ 已收集足夠數據並顯示趨勢線！",
+    taskPendingText: "⏳ 需收集傾角 5° 至少 5 個不同距離與水重的數據，並點擊「畫趨勢線」按鈕",
+    quiz: {
+      question: "【觀察數據的規律】此時橫軸(x)是「水重」 、縱軸(y)是球滾下的「距離」 ，趨勢線是一條彎曲向上的「二次曲線 (y = A·x²)」，代表距離與水重的平方成正比。如果想將圖形轉化為『通過原點的斜直線』來驗證正比關係，我們應該把橫軸ｘ的數據經過怎樣的處理？",
+      options: [
+        { text: "A. 改為水重的倒數 (1/水重)", correct: false, tip: "倒數會使圖形變成反比曲線，無法變成直線喔。" },
+        { text: "B. 改為「水重平方」(水重²)", correct: true, tip: "完全正確！因為 y 與 x² 成正比，若定義新變數 X = x²，則 y 與 X 便會呈現成正比的直線關係 (y = kX)！" },
+        { text: "C. 改為「距離平方」(距離²)", correct: false, tip: "若將縱軸平方，y² 與 x² 會變成 y² ∝ x⁴，反而變得更彎曲了。" }
+      ]
+    },
+    unlocks: { real: false, angle: false, ball: false, mode: true, dist: true }
+  },
+  {
+    step: 3,
+    title: "3. 驗證通過原點直線與推導落體定律",
+    task: "前一關我們發現球滾下的「距離」 ∝(正比於) 流出的「水重²」，如果這是對的，那把橫軸改成「水重²」後，「距離」對「水重² 」應該會變成一條「通過原點的斜直線」。<br>👉 請在關係圖右上角點擊<b>「橫軸：水重²」按鈕</b>。<br>👉 觀察圖表上的點是否排成一條<b>通過原點的斜直線</b>！",
+    isTaskDone: () => state.mode === 'w2' && state.trend,
+    taskDoneText: "✔ 已切換至「橫軸：水重²」，呈現通過原點的斜直線！",
+    taskPendingText: "⏳ 請點擊關係圖右上角按鈕「橫軸：水重²」，並按下「畫趨勢線」按鈕",
+    quiz: {
+      question: "【定律推導】既然「水重」代表球滾下的「時間 t」，且圖表證實球滾下的「距離 d 」與「水重²」成「正比」，這能推導出銅球在斜面滾動的什麼數學關係？",
+      options: [
+        { text: "A. 銅球滾動的距離與「時間²」成正比 (d ∝ t²)", correct: true, tip: "太厲害了！這就是伽利略的重大發現：位移與時間的平方成正比 (d ∝ t²)！" },
+        { text: "B. 銅球滾動的距離與「時間」成正比 (d ∝ t)", correct: false, tip: "只有在等速度運動中，位移才和時間一次方成正比。請再次仔細觀察數據哦！" },
+        { text: "C. 銅球在斜面上滾動的是等速度運動", correct: false, tip: "如果是等速度運動，距離對時間的圖形本身就會是直線，不需要平方。" }
+      ]
+    },
+    unlocks: { real: false, angle: false, ball: false, mode: true, dist: true }
+  },
+  {
+    step: 4,
+    title: "4. 探究斜面傾角改變的影響",
+    task: "「球滾動的『距離』與『時間²』成正比 (d ∝ t²)」這個規律，在斜面不同的傾角下也會成立嗎？請你先預測一下，若將傾角改為10° ，將銅球以同樣的距離滾下，水重會變多還是變少？<br>👉 實驗條件已解鎖<b>「10°」</b>。請將斜面角度切換為 10°，測量至少 <b>5 筆</b>不同距離數據，觀察橫坐標為「水重²」時，藍色趨勢線的斜率(傾斜程度)。",
+    isTaskDone: () => {
+      const d = new Set(state.records.filter(r=>r.angle===10 && !r.real).map(r=>r.s));
+      return d.size >= 2 && state.trend;
+    },
+    taskDoneText: "✔ 已測量 10° 數據並比較兩條斜線！",
+    taskPendingText: "⏳ 請將傾角切換為 10° 測量，操作至少 5 筆不同距離的數據，並點擊「畫趨勢線」",
+    quiz: {
+      question: "【比較推論】在「距離對水重²」的關係圖中，傾角 10° 的藍色斜直線比傾角 5° 的紅色斜直線更陡（斜率更大），這代表什麼物理意義？",
+      options: [
+        { text: "A. 傾角越大，滾動相同距離所需的時間更短（水重較少）", correct: true, tip: "答對了！斜面越陡，相同距離所需時間越短，因此單位「水重²」所滾動的距離更遠，看起來的斜直線更陡！伽利略更由此推想，若傾角變成 90°，就是自由落體運動！" },
+        { text: "B. 傾角越大，小球滾動受到更多阻力，所以滾得更慢", correct: false, tip: "觀察數據可以發現，相同距離下，傾角 10° 流出的水重明顯比傾角 5° 少，代表用時更短、速度更快喔。" },
+        { text: "C. 傾角改變對運動快慢完全沒有影響", correct: false, tip: "圖表上的兩條線斜率不同，代表不同傾角運動快慢是不同的。" }
+      ]
+    },
+    unlocks: { real: false, angle: true, ball: false, mode: true, dist: true }
+  },
+  {
+    step: 5,
+    title: "5. 銅球質量的影響：大球 vs 小球",
+    task: "古希臘哲學家亞里斯多德認為「越重的物體掉落速度越快」，但17世紀的伽利略對這樣的論述提出質疑，他應該可以如何證明亞里斯多德的想法是錯誤的呢？<br>👉 實驗條件已解鎖銅球大小。請切換為<b>「大球」</b>並測量 5 筆數據，看看關係圖中，大球數據的點落在何處。",
+    isTaskDone: () => state.records.filter(r=>r.ball==='large' && !r.real).length >= 2,
+    taskDoneText: "✔ 已完成大球的5筆數據測量！",
+    taskPendingText: "⏳ 請切換為「大球」並進行測量",
+    quiz: {
+      question: "【批判思考】觀察大球（實心點 ●）與小球（空心點 ○）在關係圖上的位置，你發現了什麼？這證明了甚麼事情？",
+      options: [
+        { text: "A. 大球比小球滾得明顯更快，所需水重只有小球一半，表示所需時間較短。", correct: false, tip: "請仔細觀察數據與關係圖，相同距離與角度下，大球和小球的點幾乎疊在一起喔！" },
+        { text: "B. 大球與小球的數據點重合在同一條趨勢線上，證明滾動相同距離，所需的時間會相同，與球的輕重（質量）無關。", correct: true, tip: "完全正確！若將傾角變為90°，就是自由落體運動。只要忽略空氣浮力與阻力，銅球從空中自由落下的速度與物體重量無關，且「落下距離」與「時間²」會有正比關係！伽利略成功以實驗推翻了亞里斯多德理論。" },
+        { text: "C. 大球太重了，滾到一半就停下來了。", correct: false, tip: "大球順利滾至底端，且運動規律與小球完全一致哦。" }
+      ]
+    },
+    unlocks: { real: false, angle: true, ball: true, mode: true, dist: true }
+  },
+  {
+    step: 6,
+    title: "6. 真實世界的誤差與科學方法",
+    task: "真實世界中，水流會有微小擾動，實際實驗時，在控制球滾動與水流出的操作測量上，也可能有反應時間的差別。<br>👉 實驗條件已解鎖<b>「真實世界」</b>模式。請在<b>同一個條件</b>（如 5°、小球、距離 3.0m）下連續測量 3 次，觀察數據有何差別。",
+    isTaskDone: () => {
+      const reals = state.records.filter(r=>r.real);
+      const counts = {};
+      reals.forEach(r => {
+        const key = `${r.angle}_${r.ball}_${r.s}`;
+        counts[key] = (counts[key] || 0) + 1;
+      });
+      return Math.max(0, ...Object.values(counts)) >= 3;
+    },
+    taskDoneText: "✔ 已在真實世界模式下，利用相同條件測量 3 次！",
+    taskPendingText: "⏳ 請切換「真實世界」模式，在同一「角度、大小球、距離」的條件下重複測量 3 次",
+    quiz: {
+      question: "【科學方法】在真實世界模式中，相同條件下三次測得的水重略有微小差異。面對這種測量誤差，科學家最常使用且合理的處理方式是什麼？",
+      options: [
+        { text: "A. 只挑選自己最順眼、或數值最漂亮的那一次數據，其他丟棄", correct: false, tip: "挑選數據屬於學術偏見，會喪失客觀真實性喔！" },
+        { text: "B. 進行多次測量並計算「平均值」，以減少隨機誤差的影響", correct: true, tip: "答對了！真實世界充滿不確定性，「多次測量求平均」正是近代實驗科學能夠獲得穩定規律的關鍵基石！" },
+        { text: "C. 認為實驗失敗，直接宣布定律無效", correct: false, tip: "任何精密測量都有誤差範圍，微小差異不代表理論失效。" }
+      ]
+    },
+    unlocks: { real: true, angle: true, ball: true, mode: true, dist: true }
+  },
+  {
+    step: 7,
+    title: "7. 學習收穫與心得統整",
+    task: "經過前面 6 個階段的觀察、數據收集與圖表推導，你已經掌握了伽利略斜面實驗的核心物理概念！<br>👉 請在下方寫下你今天的<b>「我的發現」</b>與<b>「我的心得感想」</b>，完成後點擊<b>「一鍵生成學習報告」</b>，輸出專屬於你的 PDF 實驗學習歷程記錄！",
+    isTaskDone: () => {
+      const d = ($('reflectDiscovery') ? $('reflectDiscovery').value.trim() : state.discoveryText);
+      const t = ($('reflectThoughts') ? $('reflectThoughts').value.trim() : state.thoughtsText);
+      return d.length > 0 && t.length > 0;
+    },
+    taskDoneText: "✔ 已填寫學習收穫！可點擊按鈕匯出 PDF，或進入下一階段自由探索！",
+    taskPendingText: "⏳ 請在下方填寫「我的發現」與「我的心得感想」",
+    quiz: null,
+    unlocks: { real: true, angle: true, ball: true, mode: true, dist: true }
+  },
+  {
+    step: 8,
+    title: "8. 自由探索與總結",
+    task: "🎉 恭喜你！你已經完整重現了伽利略斜面實驗的探究之旅。<br>現在所有控制選項已全面解鎖，你可以自由調整傾角、大小球、距離再次進行實驗，也可隨時點擊「匯出 CSV」或回頭查看報告，保存你的科學成果！",
+    isTaskDone: () => true,
+    taskDoneText: "✔ 探究歷程全部完成！",
+    taskPendingText: "",
+    quiz: null,
+    unlocks: { real: true, angle: true, ball: true, mode: true, dist: true }
+  }
+];
+
+const sceneCv=$('scene'), chartCv=$('chart');
+const accel=a=>5/7*G*Math.sin(a*Math.PI/180);
+const ballR=()=>state.ball==='small'?10:15;
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const lerp=(a,b,t)=>a+(b-a)*t;
+const ease=t=>t<=0?0:t>=1?1:t*t*(3-2*t);
+function gauss(){let u=0,v=0;while(u===0)u=Math.random();while(v===0)v=Math.random();
+  return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
+
+function hash(a,b,c){let h=(Math.round(a)*374761393+Math.round(b)*668265263+(c|0)*1013904223)|0;
+  h=Math.imul(h^(h>>>13),1274126177);h^=h>>>16;return((h>>>0)%10000)/10000-0.5;}
+function wpath(ctx,pts,close,amp,seed){ctx.beginPath();const N=pts.length,last=close?N:N-1;
+  ctx.moveTo(pts[0].x,pts[0].y);
+  for(let e=0;e<last;e++){const a=pts[e],b=pts[(e+1)%N];const dx=b.x-a.x,dy=b.y-a.y,len=Math.hypot(dx,dy);
+    const n=Math.max(1,Math.round(len/16));
+    for(let i=1;i<=n;i++){const t=i/n;let ox=0,oy=0;
+      if(i<n){ox=hash(a.x*7+i,b.y,seed)*amp*2;oy=hash(b.x,a.y*3+i,seed+5)*amp*2;}
+      ctx.lineTo(a.x+dx*t+ox,a.y+dy*t+oy);}}
+  if(close)ctx.closePath();}
+function wline(ctx,x1,y1,x2,y2,amp,seed){wpath(ctx,[{x:x1,y:y1},{x:x2,y:y2}],false,amp==null?1.2:amp,seed||0);ctx.stroke();}
+function wpoly(ctx,pts,close,fill,amp,seed){wpath(ctx,pts,close,amp==null?1.2:amp,seed||0);if(fill){ctx.fillStyle=fill;ctx.fill();}ctx.stroke();}
+function wrect(ctx,x,y,w,h,amp,seed,fill){wpoly(ctx,[{x,y},{x:x+w,y},{x:x+w,y:y+h},{x,y:y+h}],true,fill,amp,seed);}
+function wcircle(ctx,cx,cy,r,fill,seed){ctx.beginPath();const N=28;
+  for(let i=0;i<N;i++){const a=i/N*Math.PI*2;const rr=r*(1+0.05*hash(i,Math.round(r*10),seed));
+    const x=cx+Math.cos(a)*rr,y=cy+Math.sin(a)*rr;i?ctx.lineTo(x,y):ctx.moveTo(x,y);}
+  ctx.closePath();if(fill){ctx.fillStyle=fill;ctx.fill();}ctx.stroke();}
+function fitCanvas(cv){const w=cv.clientWidth,h=cv.clientHeight;if(w<10||h<10)return null;
+  const dpr=Math.min(2,window.devicePixelRatio||1);const W=Math.round(w*dpr),H=Math.round(h*dpr);
+  if(cv.width!==W||cv.height!==H){cv.width=W;cv.height=H;}return{w,h,dpr};}
+
+let actx=null;
+function ensureAudio(){try{actx=actx||new(window.AudioContext||window.webkitAudioContext)();if(actx.state==='suspended')actx.resume();}catch(e){}}
+function clack(){if(!state.sound||!actx)return;try{
+  const sr=actx.sampleRate,len=Math.floor(sr*0.09),buf=actx.createBuffer(1,len,sr),d=buf.getChannelData(0);
+  for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/len,3.5);
+  const src=actx.createBufferSource();src.buffer=buf;
+  const f=actx.createBiquadFilter();f.type='bandpass';f.frequency.value=1600;f.Q.value=1.2;
+  const g=actx.createGain();g.gain.value=0.9;src.connect(f);f.connect(g);g.connect(actx.destination);src.start();}catch(e){}}
+
+function playTone(freq, type, startTime, duration, startGain=0.25){
+  if(!state.sound||!actx)return;
+  try{
+    const osc=actx.createOscillator();
+    const gain=actx.createGain();
+    osc.type=type;
+    osc.frequency.setValueAtTime(freq, startTime);
+    gain.gain.setValueAtTime(startGain, startTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+    osc.connect(gain);
+    gain.connect(actx.destination);
+    osc.start(startTime);
+    osc.stop(startTime + duration);
+  }catch(e){}
+}
+
+function playSuccessSound(){
+  ensureAudio();
+  if(!state.sound||!actx)return;
+  const now=actx.currentTime;
+  playTone(523.25, 'triangle', now, 0.16, 0.3);
+  playTone(659.25, 'triangle', now + 0.1, 0.18, 0.3);
+  playTone(783.99, 'sine',     now + 0.2, 0.35, 0.35);
+}
+
+function playErrorSound(){
+  ensureAudio();
+  if(!state.sound||!actx)return;
+  const now=actx.currentTime;
+  playTone(240, 'sine', now, 0.12, 0.35);
+  playTone(200, 'sine', now + 0.13, 0.22, 0.35);
+}
+
+function balanceGeom(t){return{lx:B.x-B.half*Math.cos(t),ly:B.beamY+B.half*Math.sin(t),rx:B.x+B.half*Math.cos(t),ry:B.beamY-B.half*Math.sin(t)};}
+
+function drawWaterStation(ctx,now,fs){
+  const V={x:25,y:100,w:75,h:140};
+  const out=Math.min(100,state.water);
+  const top=V.y+12+(V.h-26)*(out/100);
+  ctx.fillStyle=WATER;ctx.beginPath();
+  ctx.moveTo(V.x+3,top+Math.sin(now/300)*0.8);ctx.lineTo(V.x+V.w-3,top-Math.sin(now/300)*0.8);
+  ctx.lineTo(V.x+V.w-3,V.y+V.h-3);ctx.lineTo(V.x+3,V.y+V.h-3);ctx.closePath();ctx.fill();
+  ctx.strokeStyle=INK;ctx.lineWidth=2.2;wrect(ctx,V.x,V.y,V.w,V.h,1.4,11);
+  ctx.fillStyle=INK;ctx.font=`${13*fs}px ${FONT}`;ctx.textAlign='center';ctx.textBaseline='alphabetic';
+  ctx.fillText('水鐘',V.x+V.w/2,V.y-8);
+  wline(ctx,V.x+V.w,222,128,222,0.8,12);wline(ctx,V.x+V.w,230,128,230,0.8,13);wline(ctx,128,222,128,230,0.4,14);
+
+  const cup=state.cup,cupTop=cup.yb-52;
+  const xl=y=>cup.x-19+4*(y-cupTop)/52, xr=y=>cup.x+19-4*(y-cupTop)/52;
+  const f=Math.min(1,state.water/100);
+  const yEnd=cup.yb-3-46*f;
+  if(state.phase==='rolling'){
+    ctx.strokeStyle=WATER;ctx.lineWidth=3;wline(ctx,125,232,125,yEnd,1.2,Math.floor(now/90));
+    ctx.fillStyle=WATER;
+    for(let i=0;i<3;i++){const yy=232+((now/6+i*37)%Math.max(1,(yEnd-232)));
+      ctx.beginPath();ctx.ellipse(125+Math.sin(i*3+now/200)*2,yy,2.2,3.2,0,0,Math.PI*2);ctx.fill();}
+  }
+  if(f>0){ctx.fillStyle=WATER;ctx.beginPath();
+    ctx.moveTo(xl(yEnd)+2,yEnd+Math.sin(now/180));ctx.lineTo(xr(yEnd)-2,yEnd-Math.sin(now/180));
+    ctx.lineTo(xr(cup.yb-3)-2,cup.yb-3);ctx.lineTo(xl(cup.yb-3)+2,cup.yb-3);ctx.closePath();ctx.fill();}
+  ctx.strokeStyle=INK;ctx.lineWidth=2.2;
+  wpoly(ctx,[{x:xl(cupTop),y:cupTop},{x:xr(cupTop),y:cupTop},{x:xr(cup.yb),y:cup.yb},{x:xl(cup.yb),y:cup.yb}],true,null,1.1,15);
+
+  const g=balanceGeom(state.tilt);
+  ctx.strokeStyle=INK;ctx.lineWidth=2.2;
+  wrect(ctx,B.x-25,GY-8,50,8,0.8,16,WOODD);
+  wline(ctx,B.x,GY-8,B.x,B.beamY,1,17);
+  wline(ctx,g.lx,g.ly,g.rx,g.ry,0.8,18);
+  ctx.fillStyle=INK;ctx.beginPath();ctx.moveTo(B.x,B.beamY-8);ctx.lineTo(B.x-6,B.beamY+3);ctx.lineTo(B.x+6,B.beamY+3);ctx.closePath();ctx.fill();
+  [[g.lx,g.ly],[g.rx,g.ry]].forEach(([ex,ey],i)=>{const py=ey+B.drop;ctx.lineWidth=1.2;
+    wline(ctx,ex-15,ey,ex-19,py-4,0.5,20+i);wline(ctx,ex+15,ey,ex+19,py-4,0.5,22+i);
+    ctx.lineWidth=2.2;ctx.beginPath();ctx.moveTo(ex-21,py-4);ctx.quadraticCurveTo(ex,py+7,ex+21,py-4);ctx.stroke();});
+  if(state.weightOn){const px=g.rx,py=g.ry+B.drop-4;
+    wrect(ctx,px-8,py-14,16,14,0.7,24,'#8A8A80');wrect(ctx,px-3,py-19,6,5,0.5,25,'#8A8A80');}
+  ctx.font=`${12*fs}px ${FONT}`;ctx.fillStyle=INK;ctx.textAlign='center';ctx.textBaseline='top';
+  ctx.fillText('天平（秤量）',B.x,GY+4);
+  if(state.tag!=null){ctx.save();ctx.translate(228,249);ctx.rotate(-0.05);
+    ctx.lineWidth=1.5;wrect(ctx,-44,-13,88,26,0.8,26,'#FFF8E6');
+    ctx.fillStyle=RED;ctx.beginPath();ctx.arc(-36,-6,2.2,0,6.29);ctx.fill();
+    ctx.fillStyle=INK;ctx.font=`bold ${16*fs}px ${FONTN}`;ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(state.tag+' g',4,1);ctx.restore();}
+}
+
+function drawScene(now){
+  const r=fitCanvas(sceneCv);if(!r)return;
+  const {w,h,dpr}=r,ctx=sceneCv.getContext('2d');
+  ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,sceneCv.width,sceneCv.height);
+  const k=Math.min(w/1000,h/420),ox=(w-1000*k)/2,oy=(h-420*k)/2;view={k,ox,oy};
+  ctx.setTransform(dpr*k,0,0,dpr*k,ox*dpr,oy*dpr);
+  const fs=clamp(0.62/k,1,1.7);
+  ctx.lineCap='round';ctx.lineJoin='round';
+  const th=state.angle*Math.PI/180,c=Math.cos(th),s=Math.sin(th);
+  const u={x:c,y:-s},n={x:-s,y:-c};
+  const P=d=>({x:SC.x0+d*PXM*c,y:SC.y0-d*PXM*s});
+  const off=(p,v,m)=>({x:p.x+v.x*m,y:p.y+v.y*m});
+
+  ctx.strokeStyle=INK;ctx.lineWidth=2.2;wline(ctx,12,GY,988,GY,1.6,1);
+  drawWaterStation(ctx,now,fs);
+
+  const p0=P(0),p1=P(7),pE=P(SC.end);
+  const p2=off(pE,n,-SC.thick),p3=off(p0,n,-SC.thick);
+  ctx.strokeStyle=INK;ctx.lineWidth=2.2;
+  wpoly(ctx,[{x:SC.x0-6,y:p3.y-2},{x:SC.x0+30,y:p3.y-2},{x:SC.x0+30,y:GY},{x:SC.x0-6,y:GY}],true,WOODD,1,20);
+  ctx.lineWidth=2.6;wline(ctx,p2.x-6,p2.y,p2.x-6,GY,1.2,21);wline(ctx,p2.x-6,p2.y+12,p2.x+26,GY,1.2,22);
+  ctx.lineWidth=2.4;wpoly(ctx,[p0,pE,p2,p3],true,WOOD,1.2,23);
+  ctx.strokeStyle='rgba(139,106,62,.55)';ctx.lineWidth=1;
+  [0.3,0.58,0.82].forEach((f,i)=>{const a=off(p0,n,-SC.thick*f),b=off(pE,n,-SC.thick*f);wline(ctx,a.x+12,a.y,b.x-12,b.y,1.3,30+i);});
+  ctx.strokeStyle=INK;ctx.lineWidth=1.5;ctx.fillStyle=INK;
+  ctx.font=`${12*fs}px ${FONTN}`;ctx.textAlign='center';ctx.textBaseline='top';
+  for(let d=0.5;d<=7.001;d+=0.5){const p=P(d),maj=Math.abs(d-Math.round(d))<1e-6;
+    const q=off(p,n,-(maj?9:5));wline(ctx,p.x,p.y,q.x,q.y,0.3,40+d*2);
+    if(maj){const lp=off(p,n,-(SC.thick+4));ctx.fillText(d+' m',lp.x,lp.y);}}
+  ctx.setLineDash([4,4]);ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(p3.x+8,p3.y);ctx.lineTo(p3.x+72,p3.y);ctx.stroke();ctx.setLineDash([]);
+  ctx.lineWidth=1.6;ctx.beginPath();ctx.arc(p3.x,p3.y,62,0,-th,true);ctx.stroke();
+  ctx.font=`${13*fs}px ${FONT}`;ctx.textBaseline='top';ctx.fillText('θ = '+state.angle+'°',p3.x+40,p3.y+3);
+  const xd=pE.x+22;
+  ctx.setLineDash([5,4]);ctx.lineWidth=1.4;wline(ctx,p1.x,p1.y,xd,p1.y,0.5,44);
+  ctx.lineWidth=1.6;wline(ctx,xd,GY,xd,p1.y,0.8,45);ctx.setLineDash([]);
+  wline(ctx,xd-6,p1.y,xd+6,p1.y,0.3,46);wline(ctx,xd-6,GY,xd+6,GY,0.3,47);
+  ctx.beginPath();ctx.moveTo(xd,p1.y);ctx.lineTo(xd-4,p1.y+9);ctx.lineTo(xd+4,p1.y+9);ctx.closePath();ctx.fill();
+  const hm=(7*s).toFixed(2);const ym=(GY+p1.y)/2;
+  ctx.textAlign='left';ctx.textBaseline='middle';ctx.font=`${13*fs}px ${FONT}`;ctx.fillText('抬高',xd+7,ym-9*fs);
+  ctx.font=`bold ${13*fs}px ${FONTN}`;ctx.fillText(hm+' m',xd+7,ym+9*fs);
+  ctx.strokeStyle=INK;ctx.lineWidth=2.2;
+  {const A=off(p0,u,-9),Ab=off(A,n,-SC.thick);wpoly(ctx,[Ab,p3,off(p0,n,26),off(A,n,26)],true,WOODD,1,48);}
+
+  const rr=ballR();
+  const ballCenter=d=>off(off(P(d),u,rr+3),n,rr);
+  {const pg=P(state.s),pb=off(pg,n,-4),pt=off(pg,n,44);
+    ctx.strokeStyle=RED;ctx.lineWidth=4;wline(ctx,pb.x,pb.y,pt.x,pt.y,0.6,49);
+    ctx.lineWidth=1.5;wpoly(ctx,[pt,off(pt,u,16),off(pt,n,-9)],true,RED,0.5,50);
+    ctx.fillStyle=RED;ctx.font=`bold ${14*fs}px ${FONTN}`;ctx.textAlign='center';ctx.textBaseline='bottom';
+    const lp=off(pg,n,54);ctx.fillText(state.s.toFixed(1)+' m',lp.x,lp.y);}
+  {let cb,rot=0;
+    if(state.phase==='placing'){const e=ease(state.placeP),a=ballCenter(0),b=ballCenter(state.s);
+      cb=off({x:lerp(a.x,b.x,e),y:lerp(a.y,b.y,e)},n,Math.sin(Math.PI*e)*42);}
+    else if(state.phase==='idle'){cb=ballCenter(0);}
+    else{cb=ballCenter(state.s-state.traveled);rot=-(state.traveled*PXM)/rr;}
+    const g=ctx.createRadialGradient(cb.x-rr*0.35,cb.y-rr*0.35,rr*0.1,cb.x,cb.y,rr);
+    g.addColorStop(0,'#EEC58A');g.addColorStop(0.55,'#B87333');g.addColorStop(1,'#6E4218');
+    ctx.strokeStyle=INK;ctx.lineWidth=1.8;wcircle(ctx,cb.x,cb.y,rr,g,51);
+    ctx.fillStyle='rgba(74,55,40,.45)';ctx.beginPath();ctx.arc(cb.x+Math.cos(rot)*rr*0.55,cb.y+Math.sin(rot)*rr*0.55,rr*0.16,0,6.29);ctx.fill();}
+}
+
+function tick(now){
+  if(state.phase==='placing'){state.placeP=Math.min(1,(now-state.placeT0)/PLACE_MS);
+    if(state.placeP>=1){state.phase='rolling';state.t0=now;state.traveled=0;}}
+  else if(state.phase==='rolling'){const t=(now-state.t0)/1000;
+    if(t>=state.T){state.traveled=state.s;state.water=state.wFinal;state.phase='stopped';state.stopT0=now;clack();}
+    else{state.traveled=0.5*accel(state.angle)*t*t;state.water=state.wFinal*(t/state.T);}}
+  else if(state.phase==='stopped'){if(now-state.stopT0>500){state.phase='weighing';state.weighT0=now;}}
+  else if(state.phase==='weighing'){const p=Math.min(1,(now-state.weighT0)/1700);
+    if(p<0.45){const e=ease(p/0.45),g=balanceGeom(0);state.cup.x=lerp(125,g.lx,e);state.cup.yb=lerp(GY,g.ly+B.drop-3,e);state.tilt=0;}
+    else{if(p<0.7)state.tilt=ease((p-0.45)/0.25)*0.1;else{state.tilt=0.1*(1-ease((p-0.7)/0.3));state.weightOn=true;}
+      const g=balanceGeom(state.tilt);state.cup.x=g.lx;state.cup.yb=g.ly+B.drop-3;}
+    if(p>=1){state.tilt=0;state.phase='idle';const wv=Math.round(state.wFinal*10)/10;state.tag=wv.toFixed(1);addRecord(wv);setBusy(false);}}
+  drawScene(now);requestAnimationFrame(tick);
+}
+
+function start(){if(state.phase!=='idle')return;ensureAudio();
+  if(!state.real){const dup=state.records.some(r=>r.angle===state.angle&&r.ball===state.ball&&Math.abs(r.s-state.s)<1e-6);
+    if(dup){$('modal').hidden=false;return;}}
+  begin();}
+function begin(){state.phase='placing';state.placeT0=performance.now();state.placeP=0;
+  state.T=Math.sqrt(2*state.s/accel(state.angle));
+  if(state.real){
+    const Tm=Math.max(0.3,state.T+gauss()*REACT_SD);
+    const flow=FLOW*(1+gauss()*FLOW_SD);
+    state.wFinal=clamp(Tm*flow,1,100);
+  }else state.wFinal=FLOW*state.T;
+  state.traveled=0;state.water=0;state.cup={x:125,yb:GY};state.tag=null;state.tilt=0;state.weightOn=false;setBusy(true);}
+function setBusy(b){
+  document.querySelectorAll('.ctrl .btn, .scene-header .btn').forEach(x=>x.disabled=b);
+  $('go').textContent=b?'▶ 滾動秤量中…':'▶ 開始滾動';
+  if(!b) syncCtrl();
+}
+
+function addRecord(wv){const r={id:state.nextId++,angle:state.angle,ball:state.ball,s:state.s,w:wv,real:state.real,xf:0,xt:0};
+  r.xt=r.xf=target(r);state.records.push(r);state.hl=r.id;renderTable();drawChart();
+  setTimeout(()=>{if(state.hl===r.id){state.hl=null;renderTable();drawChart();}},1800);
+  updateGuideStatus();
+}
+function target(r){return state.mode==='w'?r.w/100:(r.w*r.w)/10000;}
+
+function renderTable(){const tb=$('tbody');tb.innerHTML='';
+  state.records.forEach((r,i)=>{const tr=document.createElement('tr');tr.dataset.id=r.id;if(state.hl===r.id)tr.classList.add('hl');
+    tr.innerHTML=`<td class="num">${i+1}</td><td><span class="chip ${r.angle===5?'a5':'a10'}">${r.angle}°</span></td>
+      <td>${r.ball==='small'?'○ 小球':'● 大球'}</td><td class="num">${r.s.toFixed(1)}</td><td class="num">${r.w.toFixed(1)}</td>
+      <td class="num w2">${Math.round(r.w*r.w)}</td><td><button class="del" aria-label="刪除">✕</button></td>`;
+    tr.addEventListener('mouseenter',()=>{state.hl=r.id;drawChart();});
+    tr.addEventListener('mouseleave',()=>{if(state.hl===r.id){state.hl=null;drawChart();}});
+    tr.addEventListener('click',()=>{state.hl=state.hl===r.id?null:r.id;renderTable();drawChart();});
+    tr.querySelector('.del').addEventListener('click',e=>{
+      e.stopPropagation();state.records=state.records.filter(x=>x!==r);
+      if(state.hl===r.id)state.hl=null;renderTable();drawChart();updateGuideStatus();
+    });
+    tb.appendChild(tr);});
+  $('tab').classList.toggle('show-w2',state.mode==='w2');$('empty').style.display=state.records.length?'none':'block';
+  syncTrendBtn();}
+
+function exportCSV(){const rows=[['#','傾角(°)','銅球','距離(m)','水重(g)','水重²(g²)','真實世界模式']];
+  state.records.forEach((r,i)=>rows.push([i+1,r.angle,r.ball==='small'?'小球':'大球',r.s.toFixed(1),r.w.toFixed(1),(r.w*r.w).toFixed(1),r.real?'是':'否']));
+  const csv='\uFEFF'+rows.map(r=>r.join(',')).join('\r\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download='伽利略斜面實驗數據.csv';document.body.appendChild(a);a.click();
+  setTimeout(()=>{a.remove();URL.revokeObjectURL(url);},1500);}
+
+function linreg(pts){const n=pts.length;if(n<2)return null;let sx=0,sy=0,sxx=0,sxy=0;
+  pts.forEach(p=>{sx+=p.x;sy+=p.y;sxx+=p.x*p.x;sxy+=p.x*p.y;});
+  const den=n*sxx-sx*sx;if(Math.abs(den)<1e-9)return null;
+  const b=(n*sxy-sx*sy)/den,a=(sy-b*sx)/n;return{a,b};}
+function powfit(pts){const lp=pts.filter(p=>p.x>0&&p.y>0).map(p=>({x:Math.log(p.x),y:Math.log(p.y)}));
+  const f=linreg(lp);if(!f)return null;return{k:Math.exp(f.a),n:f.b};}
+function counts(){return{5:state.records.filter(r=>r.angle===5).length,10:state.records.filter(r=>r.angle===10).length};}
+function canTrend(){return [5,10].some(a=>new Set(state.records.filter(r=>r.angle===a).map(r=>r.w)).size>=2);}
+function syncTrendBtn(){const ok=canTrend();if(!ok)state.trend=false;
+  const b=$('trend');b.disabled=!ok;b.textContent=state.trend?'隱藏趨勢線':'畫趨勢線';b.classList.toggle('on',state.trend);
+  updateHint();}
+function updateHint(){const c=counts(),el=$('hint');
+  const status=`目前 5°：<span class="cnt">${c[5]}</span> 點｜10°：<span class="cnt">${c[10]}</span> 點`;
+  const active=[5,10].filter(a=>c[a]>=2);
+  const low=state.trend&&active.some(a=>c[a]<MIN_PTS);
+  el.classList.toggle('warn',low);
+  el.innerHTML=(low?'⚠ 點數偏少，趨勢線可能不穩定。':'💡 ')+
+    `每個傾角收集至少 <span class="cnt">${MIN_PTS}</span> 個不同距離點，能畫出精確趨勢線。`+' '+status;}
+
+let trendAnim=null;
+function startTrend(){state.trend=true;state.trendP=0;const t0=performance.now();
+  if(trendAnim)cancelAnimationFrame(trendAnim);
+  const step=now=>{state.trendP=Math.min(1,(now-t0)/900);drawChart();trendAnim=state.trendP<1?requestAnimationFrame(step):null;};
+  trendAnim=requestAnimationFrame(step);
+  setTimeout(updateGuideStatus, 150);
+}
+
+let chartAnim=null;
+function retarget(){state.records.forEach(r=>r.xt=target(r));if(chartAnim)return;
+  const step=()=>{let mv=false;state.records.forEach(r=>{const d=r.xt-r.xf;if(Math.abs(d)>0.0004){r.xf+=d*0.12;mv=true;}else r.xf=r.xt;});
+    drawChart();chartAnim=mv?requestAnimationFrame(step):null;};chartAnim=requestAnimationFrame(step);}
+function drawChart(){const r=fitCanvas(chartCv);if(!r)return;const {w,h,dpr}=r,ctx=chartCv.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);ctx.lineCap='round';ctx.lineJoin='round';
+  const m={l:52,r:18,t:14,b:44},pw=w-m.l-m.r,ph=h-m.t-m.b;if(pw<40||ph<40)return;
+  const sq=state.mode==='w2',xmax=sq?10000:100,ymax=7;
+  const X=v=>m.l+v/xmax*pw,Y=v=>m.t+ph-v/ymax*ph;
+  ctx.lineWidth=1;ctx.strokeStyle='rgba(74,55,40,.12)';
+  for(let i=1;i<=20;i++){const x=X(xmax*i/20);ctx.beginPath();ctx.moveTo(x,m.t);ctx.lineTo(x,m.t+ph);ctx.stroke();}
+  for(let i=1;i<=14;i++){const y=Y(i*0.5);ctx.beginPath();ctx.moveTo(m.l,y);ctx.lineTo(m.l+pw,y);ctx.stroke();}
+  ctx.strokeStyle='rgba(74,55,40,.3)';
+  for(let i=1;i<=5;i++){const x=X(xmax*i/5);ctx.beginPath();ctx.moveTo(x,m.t);ctx.lineTo(x,m.t+ph);ctx.stroke();}
+  for(let i=1;i<=7;i++){const y=Y(i);ctx.beginPath();ctx.moveTo(m.l,y);ctx.lineTo(m.l+pw,y);ctx.stroke();}
+  ctx.strokeStyle=INK;ctx.lineWidth=2;wline(ctx,m.l,m.t+ph,m.l+pw+4,m.t+ph,1.1,101);wline(ctx,m.l,m.t+ph,m.l,m.t-4,1.1,102);
+  ctx.fillStyle=INK;ctx.beginPath();ctx.moveTo(m.l+pw+8,m.t+ph);ctx.lineTo(m.l+pw-2,m.t+ph-4);ctx.lineTo(m.l+pw-2,m.t+ph+4);ctx.fill();
+  ctx.beginPath();ctx.moveTo(m.l,m.t-8);ctx.lineTo(m.l-4,m.t+2);ctx.lineTo(m.l+4,m.t+2);ctx.fill();
+  ctx.font='12px '+FONTN;ctx.textAlign='center';ctx.textBaseline='top';
+  for(let i=0;i<=5;i++)ctx.fillText(String(xmax*i/5),X(xmax*i/5),m.t+ph+6);
+  ctx.textAlign='right';ctx.textBaseline='middle';for(let i=0;i<=7;i++)ctx.fillText(String(i),m.l-7,Y(i));
+  ctx.font='14px '+FONT;ctx.textAlign='right';ctx.textBaseline='bottom';ctx.fillText(sq?'水重² (g²) ≈ 時間²':'水重 (g) ≈ 時間',m.l+pw,m.t+ph+42);
+  ctx.save();ctx.translate(14,m.t+ph/2);ctx.rotate(-Math.PI/2);ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('距離 (m)',0,0);ctx.restore();
+  if(state.trend&&state.trendP>0){const eqs=[];
+    ctx.save();ctx.beginPath();ctx.rect(m.l,m.t,pw,ph);ctx.clip();
+    [5,10].forEach(a=>{const pts=state.records.filter(r=>r.angle===a).map(r=>({x:r.xf*xmax,y:r.s}));
+      if(pts.length<2)return;const col=a===5?RED:BLUE,xe=xmax*state.trendP;
+      ctx.setLineDash([9,6]);ctx.strokeStyle=col;ctx.lineWidth=2.2;let eq=null;
+      if(sq){const f=linreg(pts);if(!f)return;
+        wline(ctx,X(0),Y(f.a),X(xe),Y(f.a+f.b*xe),1,110+a);
+        eq=`${a}°：y = ${f.b.toPrecision(3)} x ${f.a<0?'−':'+'} ${Math.abs(f.a).toFixed(2)}（正比直線）`;}
+      else{const f=powfit(pts);if(!f)return;const N=80,cp=[];
+        for(let i=0;i<=N;i++){const x=xe*i/N;cp.push({x:X(x),y:Y(f.k*Math.pow(x,f.n))});}
+        wpath(ctx,cp,false,0.6,110+a);ctx.stroke();
+        // 智能判斷：當冪次接近 2 時直接顯示標準數學上標 x²，更符合課本閱讀直覺
+        const pwrStr = Math.abs(f.n - 2) < 0.08 ? '²' : (Math.abs(f.n - Math.round(f.n)) < 0.05 ? (Math.round(f.n) === 2 ? '²' : `^${Math.round(f.n)}`) : `^${f.n.toFixed(2)}`);
+        eq=`${a}°：y = ${f.k.toPrecision(3)} x${pwrStr}（二次曲線）`;}
+      ctx.setLineDash([]);
+      if(eq){if(pts.length<MIN_PTS)eq+=`（僅 ${pts.length} 點）`;eqs.push({col,eq});}});
+    ctx.restore();
+    if(state.trendP>=1){ctx.font='12px '+FONTN;ctx.textAlign='left';ctx.textBaseline='top';
+      eqs.forEach((e,i)=>{ctx.fillStyle=e.col;ctx.fillText(e.eq,m.l+8,m.t+6+i*16);});}}
+  state.records.forEach(r=>{const cx=X(r.xf*xmax),cy=Y(r.s),col=r.angle===5?RED:BLUE;
+    if(state.hl===r.id){ctx.fillStyle='rgba(255,200,60,.55)';ctx.beginPath();ctx.arc(cx,cy,14,0,6.29);ctx.fill();}
+    ctx.strokeStyle=col;ctx.lineWidth=2.2;
+    if(r.ball==='small')wcircle(ctx,cx,cy,6.5,'rgba(244,232,208,.9)',r.id);else wcircle(ctx,cx,cy,6.5,col,r.id);});
+}
+
+function updateGuideUI() {
+  const g = GUIDES[state.step - 1];
+  $('gTitle').textContent = g.title;
+  $('gBadge').textContent = `階段 ${g.step}/8`;
+  $('gTask').innerHTML = g.task;
+  state.stepAnswered = false;
+
+  const qBox = $('quizBox');
+  const nextBtn = $('gNext');
+  const fb = $('quizFeedback');
+  const refBox = $('reflectionBox');
+
+  fb.className = 'quiz-feedback';
+  fb.textContent = '';
+  nextBtn.style.display = 'none';
+  qBox.style.display = 'none';
+
+  // 階段 7：顯示「學習收穫」填答面板
+  if (state.step === 7) {
+    refBox.style.display = 'block';
+    nextBtn.textContent = '進入階段 8：自由探索 ➔';
+  } else {
+    refBox.style.display = 'none';
+    nextBtn.textContent = '✔ 答對了！進入下一步';
+  }
+
+  if (g.quiz) {
+    $('quizQ').textContent = g.quiz.question;
+    const optsDiv = $('quizOpts');
+    optsDiv.innerHTML = '';
+    
+    // 初始化題目的學習歷程紀錄結構
+    if (!state.quizLog[g.step]) {
+      state.quizLog[g.step] = {
+        title: g.title,
+        question: g.quiz.question,
+        attempts: 0,
+        passed: false,
+        chosen: []
+      };
+    }
+
+    g.quiz.options.forEach((opt, idx) => {
+      const b = document.createElement('button');
+      b.className = 'opt-btn';
+      b.textContent = opt.text;
+      b.addEventListener('click', () => handleQuizAnswer(opt, b));
+      optsDiv.appendChild(b);
+    });
+  }
+
+  syncCtrl();
+  updateGuideStatus();
+}
+
+function handleQuizAnswer(opt, btnEl) {
+  const g = GUIDES[state.step - 1];
+  const fb = $('quizFeedback');
+  const allBtns = document.querySelectorAll('.opt-btn');
+  const log = state.quizLog[g.step];
+
+  if (log) {
+    log.attempts++;
+    log.chosen.push(opt.text);
+  }
+
+  if (opt.correct) {
+    playSuccessSound();
+    allBtns.forEach(b => { b.classList.add('locked'); b.classList.remove('correct', 'wrong'); });
+    btnEl.classList.add('correct');
+    fb.className = 'quiz-feedback show ok';
+    fb.innerHTML = `<b>✔ 正確！</b> ${opt.tip}`;
+    state.stepAnswered = true;
+    if (log) log.passed = true;
+    $('gNext').style.display = 'block';
+  } else {
+    playErrorSound();
+    btnEl.classList.add('wrong');
+    fb.className = 'quiz-feedback show err';
+    fb.innerHTML = `<b>再想想看：</b> ${opt.tip}`;
+  }
+}
+
+function updateGuideStatus() {
+  const g = GUIDES[state.step - 1];
+  if (!g) return;
+  const done = g.isTaskDone();
+  const statusEl = $('taskStatus');
+  const qBox = $('quizBox');
+
+  if (state.step === 7) {
+    if (done) {
+      statusEl.className = 'task-status done';
+      statusEl.innerHTML = g.taskDoneText;
+      $('gNext').style.display = 'block';
+    } else {
+      statusEl.className = 'task-status';
+      statusEl.innerHTML = g.taskPendingText;
+      $('gNext').style.display = 'none';
+    }
+    return;
+  }
+
+  if (done) {
+    statusEl.className = 'task-status done';
+    statusEl.innerHTML = g.taskDoneText;
+    if (g.quiz) {
+      qBox.style.display = 'block';
+    } else {
+      qBox.style.display = 'none';
+      if (state.step === 8) {
+        $('gNext').style.display = 'none';
+      }
+    }
+  } else {
+    statusEl.className = 'task-status';
+    statusEl.innerHTML = g.taskPendingText + (g.quiz ? '<br><span style="font-size:0.8rem;color:var(--ink2);">🔒 完成上方實驗操作後，將解鎖推論挑戰題</span>' : '');
+    qBox.style.display = 'none';
+  }
+}
+
+$('gNext').addEventListener('click', () => {
+  if (state.step === 7) {
+    // 進入階段 8 自由探索
+    state.step++;
+    updateGuideUI();
+  } else if (state.step < 8 && state.stepAnswered) {
+    state.step++;
+    updateGuideUI();
+  }
+});
+
+// 監聽心得輸入更新
+$('reflectDiscovery').addEventListener('input', e => {
+  state.discoveryText = e.target.value;
+  updateGuideStatus();
+});
+$('reflectThoughts').addEventListener('input', e => {
+  state.thoughtsText = e.target.value;
+  updateGuideStatus();
+});
+
+// 打開學生資料輸入彈窗
+$('btnOpenReportModal').addEventListener('click', () => {
+  const d = $('reflectDiscovery').value.trim();
+  const t = $('reflectThoughts').value.trim();
+  if (!d || !t) {
+    alert('請先在上方完整填寫「我的發現」與「我的心得感想」，再生成報告喔！');
+    return;
+  }
+  state.discoveryText = d;
+  state.thoughtsText = t;
+  $('studentModal').hidden = false;
+  $('stuName').focus();
+});
+
+$('btnCancelModal').addEventListener('click', () => {
+  $('studentModal').hidden = true;
+});
+
+// 暫存目前的學生資料供匯出使用
+let currentStudentInfo = { cls: '', seat: '', name: '', fullTag: '' };
+
+// 點擊「下一步：預覽報告」
+$('btnDoExportPdf').addEventListener('click', () => {
+  const cls = $('stuClass').value.trim();
+  const seat = $('stuSeat').value.trim();
+  const name = $('stuName').value.trim();
+
+  if (!cls || !name) {
+    alert('請至少填寫「班級」與「姓名」喔！');
+    return;
+  }
+
+  currentStudentInfo = {
+    cls,
+    seat,
+    name,
+    fullTag: `${cls}${seat ? '_' + seat + '號' : ''}_${name}`
+  };
+
+  // 關閉輸入彈窗
+  $('studentModal').hidden = true;
+
+  // 生成完整 1~7 階段詳細報告 HTML 並放入預覽視窗
+  const reportHtml = generateFullReportHtml(cls, seat, name);
+  $('previewPaperContent').innerHTML = reportHtml;
+
+  // 同步給隱藏列印容器
+  $('pdfReportContent').innerHTML = reportHtml;
+
+  // 打開預覽彈窗
+  $('previewModal').hidden = false;
+});
+
+// 關閉預覽彈窗
+$('btnClosePreview').addEventListener('click', () => {
+  $('previewModal').hidden = true;
+});
+
+// 在預覽視窗中確認下載 PDF
+$('btnConfirmDownloadPdf').addEventListener('click', () => {
+  const fileName = `伽利略的斜面實驗+${currentStudentInfo.fullTag}.pdf`;
+  const element = $('previewPaperContent'); // 直接以預覽中的元素產生高解析 PDF
+
+  const opt = {
+    margin: [10, 10, 10, 10],
+    filename: fileName,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true, logging: false },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  };
+
+  if (window.html2pdf) {
+    html2pdf().set(opt).from(element).save().then(() => {
+      $('previewModal').hidden = true;
+      alert(`🎉 恭喜！學習報告已成功下載：\n${fileName}`);
+    }).catch(err => {
+      console.error(err);
+      alert('生成 PDF 時發生小問題，正在為您切換至瀏覽器列印視窗。');
+      window.print();
+    });
+  } else {
+    window.print();
+  }
+});
+
+function generateFullReportHtml(cls, seat, name) {
+  const now = new Date();
+  const timeStr = `${now.getFullYear()}/${(now.getMonth()+1).toString().padStart(2,'0')}/${now.getDate().toString().padStart(2,'0')} ${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
+
+  // 整理 1~6 階段的歷程與科學推論
+  let stepsHtml = '';
+  for (let s = 1; s <= 6; s++) {
+    const g = GUIDES[s - 1];
+    const log = state.quizLog[s];
+    const passed = log && log.passed;
+    const attempts = log ? log.attempts : 0;
+    const finalAnswer = log && log.chosen.length ? log.chosen[log.chosen.length - 1] : '（未回答）';
+
+    // 擷取該階段代表性實驗數據
+    let stageDataText = '';
+    if (s === 1) {
+      const r1 = state.records[0];
+      stageDataText = r1 ? `初次滾動測量：距離 ${r1.s}m ➔ 水重 ${r1.w}g` : '已觀察水鐘與天平操作流程';
+    } else if (s === 2) {
+      const r5 = state.records.filter(r => r.angle === 5 && !r.real);
+      stageDataText = `已收集 5° 理想數據共 ${r5.length} 筆（包含距離：${[...new Set(r5.map(r=>r.s+'m'))].join(', ')}），並繪出二次曲線趨勢線`;
+    } else if (s === 3) {
+      stageDataText = `成功切換「水重²」橫軸，圖表轉化為通過原點之正比斜直線 (d ∝ t²)`;
+    } else if (s === 4) {
+      const r10 = state.records.filter(r => r.angle === 10 && !r.real);
+      stageDataText = `已收集 10° 數據共 ${r10.length} 筆，發現 10° 斜直線斜率較陡，滾下相同距離用時更短`;
+    } else if (s === 5) {
+      const rl = state.records.filter(r => r.ball === 'large' && !r.real);
+      stageDataText = `已測量大球數據共 ${rl.length} 筆，數據點與小球完美重疊，證實落下快慢與銅球質量無關`;
+    } else if (s === 6) {
+      const reals = state.records.filter(r => r.real);
+      stageDataText = `已完成真實世界重複測量共 ${reals.length} 筆，觀察到隨機誤差，學習以「多次平均」求真值`;
+    }
+
+    stepsHtml += `
+      <div class="rpt-step-item">
+        <div class="rpt-step-header">
+          <span class="rpt-step-title">階段 ${s}：${g.title.split('. ')[1] || g.title}</span>
+          <span>
+            <span class="rpt-sub-badge">${attempts > 0 ? attempts + ' 次作答' : '尚未答題'}</span>
+            <span class="rpt-badge ${passed ? 'ok' : 'cnt'}">${passed ? '✔ 檢核通過' : '未完成'}</span>
+          </span>
+        </div>
+        <div style="font-size:12.5px;color:#665;margin-bottom:6px;">
+          🔬 <b>實驗歷程摘要：</b>${stageDataText}
+        </div>
+        ${g.quiz ? `
+          <div class="rpt-q-desc"><b>❓ 推論思考題：</b>${g.quiz.question}</div>
+          <div class="rpt-q-ans"><b>👉 學生最終選答：</b>${finalAnswer}</div>
+        ` : ''}
+      </div>
+    `;
+  }
+
+  // 整理階段 7 的發現與心得
+  const dText = state.discoveryText || ($('reflectDiscovery') ? $('reflectDiscovery').value.trim() : '');
+  const tText = state.thoughtsText || ($('reflectThoughts') ? $('reflectThoughts').value.trim() : '');
+
+  // 整理所有實驗記錄表格
+  let dataRows = '';
+  state.records.forEach((r, idx) => {
+    dataRows += `
+      <tr>
+        <td style="text-align:center;">${idx + 1}</td>
+        <td style="text-align:center;">${r.angle}°</td>
+        <td style="text-align:center;">${r.ball === 'small' ? '小球' : '大球'}</td>
+        <td style="text-align:center;">${r.s.toFixed(1)}</td>
+        <td style="text-align:center;">${r.w.toFixed(1)}</td>
+        <td style="text-align:center;">${Math.round(r.w * r.w)}</td>
+        <td style="text-align:center;">${r.real ? '<span style="color:#B5442A;">真實誤差</span>' : '理想狀態'}</td>
+      </tr>
+    `;
+  });
+
+  return `
+    <div class="rpt-header">
+      <h2>伽利略的斜面實驗 — 探究自學學習歷程報告</h2>
+      <div style="font-size:14px;color:#7A6248;margin-top:2px;">Jay's Lab 探究與實作物理學習平台</div>
+      <div class="rpt-meta">
+        <div><b>班級：</b>${cls} ｜ <b>座號：</b>${seat || '—'} ｜ <b>姓名：</b>${name}</div>
+        <div><b>產出日期：</b>${timeStr}</div>
+      </div>
+    </div>
+
+    <!-- 歷程統計概覽 -->
+    <div class="rpt-box">
+      <h3>一、實驗數據收集總覽</h3>
+      <div style="font-size:13px;line-height:1.6;">
+        • 累計完成測量筆數：<b>${state.records.length}</b> 筆 ｜ 
+        傾角 5°：<b>${state.records.filter(r=>r.angle===5).length}</b> 筆 ｜ 
+        傾角 10°：<b>${state.records.filter(r=>r.angle===10).length}</b> 筆 ｜ 
+        真實世界（誤差測量）：<b>${state.records.filter(r=>r.real).length}</b> 筆
+      </div>
+    </div>
+
+    <!-- 階段 1~6 的完整歷程與挑戰題 -->
+    <div class="rpt-box">
+      <h3>二、階段 1 ~ 6 探究歷程與科學推論挑戰紀錄</h3>
+      ${stepsHtml}
+    </div>
+
+    <!-- 階段 7 我的發現與心得感想 -->
+    <div class="rpt-box">
+      <h3>三、階段 7 學習收穫與核心發現（學生填寫）</h3>
+      <div style="font-size:13.5px;font-weight:bold;color:#4A3728;margin-top:6px;">1. 我的發現：</div>
+      <div class="rpt-text-block">${dText || '（尚未填寫）'}</div>
+
+      <div style="font-size:13.5px;font-weight:bold;color:#4A3728;margin-top:10px;">2. 我的心得感想：</div>
+      <div class="rpt-text-block">${tText || '（尚未填寫）'}</div>
+    </div>
+
+    <!-- 附錄：完整實驗數據表 -->
+    <div class="rpt-box">
+      <h3>四、附錄：完整實驗記錄明細表</h3>
+      ${state.records.length > 0 ? `
+        <table class="rpt-table">
+          <thead>
+            <tr>
+              <th style="text-align:center;">#</th>
+              <th style="text-align:center;">傾角</th>
+              <th style="text-align:center;">銅球</th>
+              <th style="text-align:center;">距離 (m)</th>
+              <th style="text-align:center;">水重 (g)</th>
+              <th style="text-align:center;">水重² (g²)</th>
+              <th style="text-align:center;">模式</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${dataRows}
+          </tbody>
+        </table>
+      ` : '<div style="font-size:12.5px;color:#777;">尚無實驗數據紀錄。</div>'}
+    </div>
+
+    <div style="text-align:right;font-size:11px;color:#888;margin-top:16px;border-top:1px dashed #C9A06A;padding-top:6px;">
+      系統認證簽章：by Jay\`s Lab 紅樓老頭子 系統版本：v1.4
+    </div>
+  `;
+}
+
+function syncCtrl(){
+  const g = GUIDES[state.step - 1] || GUIDES[7];
+  const u = g.unlocks;
+
+  $('grp-real').classList.toggle('locked', !u.real);$('grp-angle').classList.toggle('locked', !u.angle);
+  $('grp-ball').classList.toggle('locked', !u.ball);$('grp-mode').classList.toggle('locked', !u.mode);
+
+  const modeW2Btn = $('mode-w2');
+  if (modeW2Btn) {
+    modeW2Btn.style.display = state.step >= 3 ? '' : 'none';
+  }
+
+  document.querySelectorAll('[data-angle]').forEach(b=>b.classList.toggle('on',+b.dataset.angle===state.angle));
+  document.querySelectorAll('[data-ball]').forEach(b=>b.classList.toggle('on',b.dataset.ball===state.ball));
+  document.querySelectorAll('[data-real]').forEach(b=>b.classList.toggle('on',(b.dataset.real==='1')===state.real));
+  
+  $('realTip').textContent=state.real
+    ?'真實世界：水流略有微擾且有反應誤差，同條件可重複測量求平均'
+    :'理想狀態：無誤差，同條件每次結果相同';
+  $('sVal').textContent=state.s.toFixed(1)+' m';
+}
+
+document.querySelectorAll('[data-real]').forEach(b=>b.addEventListener('click',()=>{
+  if(state.phase!=='idle')return;
+  state.real=b.dataset.real==='1';syncCtrl();updateHint();updateGuideStatus();
+}));
+document.querySelectorAll('[data-angle]').forEach(b=>b.addEventListener('click',()=>{
+  if(state.phase!=='idle')return;
+  state.angle=+b.dataset.angle;syncCtrl();updateGuideStatus();
+}));
+document.querySelectorAll('[data-ball]').forEach(b=>b.addEventListener('click',()=>{
+  if(state.phase!=='idle')return;
+  state.ball=b.dataset.ball;syncCtrl();updateGuideStatus();
+}));
+$('sMinus').addEventListener('click',()=>{if(state.phase!=='idle')return;state.s=clamp(state.s-0.5,0.5,7);syncCtrl();});$('sPlus').addEventListener('click',()=>{if(state.phase!=='idle')return;state.s=clamp(state.s+0.5,0.5,7);syncCtrl();});
+$('go').addEventListener('click',start);$('mNo').addEventListener('click',()=>{$('modal').hidden=true;});$('modal').addEventListener('click',e=>{if(e.target===$('modal'))$('modal').hidden=true;});
+$('clear').addEventListener('click',()=>{if(!state.records.length)return;state.records=[];state.hl=null;renderTable();drawChart();updateGuideStatus();});$('csv').addEventListener('click',exportCSV);
+
+document.querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>{
+  state.mode=b.dataset.mode;
+  document.querySelectorAll('[data-mode]').forEach(x=>x.classList.toggle('on',x===b));
+  renderTable();retarget();
+  setTimeout(updateGuideStatus, 150);
+}));
+
+$('trend').addEventListener('click',()=>{if(state.trend){state.trend=false;drawChart();}else startTrend();syncTrendBtn();});
+$('snd').addEventListener('click',()=>{state.sound=!state.sound;$('snd').textContent=state.sound?'🔊 音效':'🔇 靜音';if(state.sound)ensureAudio();});
+
+let dragging=false;
+function toV(e){const rc=sceneCv.getBoundingClientRect();return{x:(e.clientX-rc.left-view.ox)/view.k,y:(e.clientY-rc.top-view.oy)/view.k};}
+function inclineHit(p){const th=state.angle*Math.PI/180,c=Math.cos(th),s=Math.sin(th);
+  const dx=p.x-SC.x0,dy=p.y-SC.y0;const along=dx*c-dy*s,perp=dx*(-s)+dy*(-c);const d=along/PXM;
+  if(d<-0.3||d>7.6||perp<-32||perp>75)return null;return d;}
+function setS(p){const d=inclineHit(p);if(d==null)return;state.s=clamp(Math.round(d*2)/2,0.5,7);syncCtrl();}
+sceneCv.addEventListener('pointerdown',e=>{if(state.phase!=='idle')return;const p=toV(e);if(inclineHit(p)==null)return;
+  dragging=true;try{sceneCv.setPointerCapture(e.pointerId);}catch(x){}setS(p);e.preventDefault();});
+sceneCv.addEventListener('pointermove',e=>{if(!dragging)return;setS(toV(e));e.preventDefault();});
+['pointerup','pointercancel','lostpointercapture'].forEach(ev=>sceneCv.addEventListener(ev,()=>{dragging=false;}));
+
+if(window.ResizeObserver){new ResizeObserver(()=>drawChart()).observe(chartCv.parentElement);}
+window.addEventListener('resize',()=>drawChart());
+window.addEventListener('orientationchange',()=>setTimeout(drawChart,300));
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>drawChart());
+
+updateGuideUI(); 
+renderTable();
+drawChart();
+requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>
