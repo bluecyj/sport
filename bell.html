@@ -1,0 +1,1675 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>伽利略的鈴鐺斜面</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-tc-webfont@latest/style.css">
+<!-- 載入 html2pdf.js 與 html2canvas / jsPDF 工具庫以確保高解析 PDF 下載 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<style>
+:root{
+  --paper:#f6eedc; --paper2:#efe3c9; --ink:#4a3b2f; --ink-light:#7a6a5c;
+  --ochre:#c9662e; --mustard:#d9a43a; --sage:#7f9b6e; --slate:#6b7fa3;
+  --wood:#c89a63; --wood2:#a67848; --line:#6d5a49;
+  --wob: 255px 15px 225px 15px/15px 225px 15px 255px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  font-family:"LXGW WenKai TC","Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;
+  color:var(--ink); background:var(--paper);
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.35 0 0 0 0 0.28 0 0 0 0 0.2 0 0 0 0.08 0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E");
+  line-height:1.7; font-size:17px;
+}
+header{padding:18px 20px 6px; text-align:center}
+header h1{margin:0;font-size:1.9rem;letter-spacing:.08em;color:var(--ochre);font-weight:700}
+header p{margin:2px 0 0;color:var(--ink-light);font-size:.95rem}
+.layout{display:grid;grid-template-columns:1fr;gap:16px;padding:12px 14px 40px;max-width:1400px;margin:0 auto}
+@media (min-width:980px){.layout{grid-template-columns:minmax(320px,2fr) minmax(0,3fr);align-items:start}}
+.card{background:rgba(255,250,238,.92);border:2px solid var(--line);border-radius:var(--wob);padding:14px 16px;box-shadow:3px 4px 0 rgba(74,59,47,.12)}
+.stage{display:flex;flex-direction:column;gap:14px;min-width:0}
+
+.canvas-card{position:relative}
+.canvas-go-btn{
+  position:absolute;
+  top:16px;
+  right:16px;
+  z-index:10;
+  box-shadow:2px 3px 0 rgba(74,59,47,.25);
+}
+
+svg#ramp{width:100%;height:auto;display:block;touch-action:none;user-select:none}
+.ground{fill:none;stroke:var(--line);stroke-width:3;stroke-linecap:round}
+.wood{fill:var(--wood);stroke:var(--line);stroke-width:2.5;stroke-linejoin:round}
+.wood2{fill:var(--wood2);stroke:var(--line);stroke-width:2.5}
+.rail{stroke:var(--line);stroke-width:4;stroke-linecap:round}
+.post{stroke:var(--line);stroke-width:3.5;stroke-linecap:round}
+.tick{stroke:var(--line);stroke-width:2;stroke-linecap:round}
+.hit{stroke:transparent;stroke-width:16;cursor:pointer}
+.hit:hover{stroke:rgba(201,102,46,.18)}
+.lbl{font-size:15px;fill:var(--ink);text-anchor:middle;font-family:inherit}
+.arc{fill:none;stroke:var(--ochre);stroke-width:2;stroke-dasharray:4 3}
+.bell{cursor:grab}
+.bell.dragging{cursor:grabbing}
+.bell .string{stroke:var(--line);stroke-width:2}
+.locked-bells .bell{cursor:not-allowed}
+.locked-bells .hit{cursor:not-allowed}
+.bell .body{stroke:var(--line);stroke-width:2.2;stroke-linejoin:round}
+.bell .clap{fill:var(--ink)}
+.bell .pos{font-size:15px;fill:var(--ink);font-family:inherit}
+.bell.selected .body{stroke:#fff;stroke-width:3.5;filter:drop-shadow(0 0 4px rgba(201,102,46,.9))}
+.bell.ring .swing{animation:swing .45s ease-out}
+@keyframes swing{0%{transform:rotate(0)}25%{transform:rotate(14deg)}55%{transform:rotate(-10deg)}80%{transform:rotate(5deg)}100%{transform:rotate(0)}}
+.note{font-size:26px;fill:var(--ochre);opacity:0;animation:float 2.2s ease-out forwards;font-family:serif}
+@keyframes float{0%{opacity:0;transform:translateY(0)}15%{opacity:1}100%{opacity:0;transform:translateY(-70px)}}
+.gap-line{stroke-width:2.5;fill:none;stroke-linecap:round}
+.gap-txt{font-size:15px;text-anchor:middle;font-weight:700;font-family:inherit}
+.corner{font-size:13px;fill:var(--ink-light);font-family:inherit}
+.ball-main{fill:#7a5230;stroke:var(--line);stroke-width:2.5}
+.ball-hi{fill:rgba(255,240,210,.55)}
+.ball-dot{fill:#f1dcb8}
+
+.controls .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:8px}
+button{font-family:inherit;font-size:1rem;color:var(--ink);background:#fff9ea;border:2px solid var(--line);border-radius:var(--wob);padding:6px 14px;cursor:pointer;box-shadow:2px 2px 0 rgba(74,59,47,.2);transition:transform .08s}
+button:hover{transform:translate(-1px,-1px)}
+button:active{transform:translate(1px,1px);box-shadow:none}
+button:disabled{opacity:.45;cursor:not-allowed;transform:none}
+button.primary{background:var(--ochre);color:#fff;font-size:1.15rem;padding:8px 22px;border-color:#8a4420}
+button.success{background:var(--sage);color:#fff;font-size:1.1rem;padding:8px 20px;border-color:#466137}
+button.on{background:var(--mustard);color:#3b2f22}
+.seg{display:inline-flex;align-items:center;gap:6px}
+.seg span{color:var(--ink-light);margin-right:4px}
+.chk{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.chk input{width:18px;height:18px;accent-color:var(--ochre)}
+.sel{min-height:38px;padding:4px 10px;background:rgba(217,164,58,.15);border-radius:12px;font-size:1rem}
+.sel:empty{display:none}
+.sel .sw{display:inline-block;width:14px;height:14px;border-radius:50%;border:2px solid var(--line);vertical-align:middle;margin-right:4px}
+.tip{margin:4px 0 0;color:var(--ink-light);font-size:.9rem}
+
+.tapes h3{margin:0 0 6px;font-size:1.05rem}
+.tape{position:relative;margin:10px 0 28px}
+.tape .who{position:absolute;left:0;top:-22px;font-size:.95rem;color:var(--ink-light)}
+.tape .strip{position:relative;height:38px;background:repeating-linear-gradient(90deg,var(--paper2) 0 6px,transparent 6px 12px);border:2px solid var(--line);border-radius:6px}
+.tape .tk{position:absolute;top:4px;bottom:4px;width:4px;border-radius:2px;transform:translateX(-50%);border:1.5px solid var(--line)}
+.tape .iv{position:absolute;top:100%;transform:translateX(-50%);font-size:.82rem;white-space:nowrap;color:var(--ink);margin-top:2px;font-weight:700}
+.tape .ph{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--ochre);transform:translateX(-50%)}
+.tape.stale{opacity:.45}
+.tape-empty{color:var(--ink-light);font-size:.95rem}
+
+.guide{position:static}
+@media (min-width:980px){
+  .guide{position:sticky;top:10px}
+}
+.dots{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.dots button{padding:2px 10px;font-size:.9rem;border-radius:20px;box-shadow:none}
+.dots button.cur{background:var(--ochre);color:#fff}
+.guide h2{margin:6px 0 8px;font-size:1.35rem;color:var(--ochre)}
+.guide p{margin:8px 0}
+.q{background:rgba(127,155,110,.16);border-left:4px solid var(--sage);padding:8px 12px;border-radius:0 12px 12px 0;margin:10px 0}
+.fact{background:rgba(107,127,163,.13);border:1.5px dashed var(--slate);padding:8px 12px;border-radius:12px;margin:10px 0;font-size:.95rem}
+.fact b{color:var(--slate)}
+details{margin:6px 0}
+details summary{cursor:pointer;color:var(--ochre);font-weight:700}
+details.hint{background:rgba(217,164,58,.14);padding:6px 12px;border-radius:12px}
+.nav{display:flex;justify-content:space-between;margin-top:14px;gap:10px}
+table.tbl{border-collapse:collapse;margin:6px 0;width:100%}
+.tbl th,.tbl td{border:1.5px solid var(--line);padding:6px 8px;text-align:center}
+.tbl input{width:70px;font-family:inherit;font-size:1rem;text-align:center;border:1.5px solid var(--line);border-radius:8px;padding:4px;background:#fffdf5}
+.ok{color:var(--sage);font-weight:700}
+.no{color:var(--ochre);font-weight:700}
+.result{margin-top:8px;padding:8px 12px;border-radius:12px;background:rgba(255,255,255,.6)}
+input.num{width:90px;font-family:inherit;font-size:1rem;border:1.5px solid var(--line);border-radius:8px;padding:4px 8px;background:#fffdf5}
+.small{font-size:.9rem;color:var(--ink-light)}
+.quiz-box{margin-top:14px;padding:12px 14px;background:rgba(255,255,255,.65);border-radius:14px;border:1.5px solid var(--line)}
+.quiz-opt{display:block;width:100%;text-align:left;font-family:inherit;font-size:1rem;margin:8px 0;padding:8px 12px;border:1.5px solid var(--line);border-radius:10px;background:#fffdf5;cursor:pointer;box-shadow:1px 2px 0 rgba(74,59,47,.12);transition:all .15s}
+.quiz-opt:hover{background:rgba(217,164,58,.18);transform:translate(-1px,-1px)}
+.quiz-opt.opt-correct{background:rgba(127,155,110,.25);border-color:var(--sage);color:#2b5424;font-weight:700}
+.quiz-opt.opt-wrong{background:rgba(201,102,46,.2);border-color:var(--ochre);color:#8a3012}
+.quiz-feedback{margin-top:8px;font-weight:700}
+
+.reflection-box{margin:12px 0;display:flex;flex-direction:column;gap:12px}
+.reflection-box label{font-weight:700;color:var(--ochre);display:block;margin-bottom:4px}
+.reflection-box .guide-note{font-size:0.9rem;color:var(--ink-light);margin-bottom:6px;background:rgba(217,164,58,.12);padding:6px 10px;border-radius:8px}
+.reflection-box textarea{width:100%;min-height:95px;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;background:#fffdf5;font-family:inherit;font-size:0.98rem;line-height:1.6;color:var(--ink);resize:vertical}
+.reflection-box textarea:focus{outline:2px solid var(--ochre);background:#fff}
+
+.modal-overlay{position:fixed;inset:0;background:rgba(74,59,47,0.65);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px}
+.modal-window{position:relative;background:#faf4e8;border:2.5px solid var(--line);border-radius:18px;max-width:760px;width:100%;max-height:92vh;overflow-y:auto;padding:24px;box-shadow:4px 6px 0 rgba(74,59,47,.3)}
+.modal-close-btn{position:absolute;top:14px;right:16px;background:transparent;border:none;box-shadow:none;font-size:1.4rem;color:var(--ink-light);cursor:pointer;padding:4px 8px;line-height:1}
+.modal-close-btn:hover{color:var(--ochre);transform:none}
+.modal-title{margin:0 0 14px;color:var(--ochre);font-size:1.4rem;text-align:center;border-bottom:2px dashed var(--line);padding-bottom:10px}
+.student-form-row{display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+.student-form-field{flex:1;min-width:140px}
+.student-form-field label{display:block;font-size:0.95rem;font-weight:700;margin-bottom:4px}
+.student-form-field input{width:100%;padding:8px 10px;border:1.5px solid var(--line);border-radius:8px;font-family:inherit;font-size:1rem;background:#fffdf5}
+
+.report-paper{background:#fff;border:2px solid #6d5a49;padding:24px;border-radius:12px;color:#333;font-size:15px;line-height:1.6;margin-bottom:16px}
+.report-header{text-align:center;border-bottom:2px solid #8a4420;padding-bottom:12px;margin-bottom:16px}
+.report-header h2{margin:0 0 4px;color:#8a4420;font-size:1.5rem}
+.report-meta{display:flex;justify-content:space-between;flex-wrap:wrap;background:#f9f5ed;padding:8px 14px;border-radius:8px;margin-bottom:14px;font-weight:700;color:#555}
+.report-sec{margin-bottom:16px}
+.report-sec h3{margin:0 0 6px;color:#c9662e;font-size:1.1rem;border-left:4px solid #c9662e;padding-left:8px}
+.report-tbl{width:100%;border-collapse:collapse;margin:8px 0;font-size:0.92rem}
+.report-tbl th,.report-tbl td{border:1px solid #c8bba9;padding:6px 8px;text-align:left}
+.report-tbl th{background:#f1e8d6}
+.report-box{background:#fcf9f2;border:1px solid #dfd4c2;border-radius:8px;padding:8px 12px;margin-top:4px}
+.badge{display:inline-block;padding:2px 8px;border-radius:6px;font-size:0.85rem;font-weight:700}
+.badge-ok{background:#d5e8d4;color:#274e13}
+.badge-no{background:#fad7cc;color:#78281f}
+</style>
+</head>
+<body>
+<header>
+  <h1>伽利略的鈴鐺斜面</h1>
+  <p>聆聽科學的旋律，找出數學的規律</p>
+</header>
+
+<main class="layout">
+  <aside class="card guide" id="guide"></aside>
+
+  <section class="stage">
+    <div class="card canvas-card">
+      <button id="go" class="primary canvas-go-btn">▶ 放球</button>
+      <svg id="ramp" viewBox="0 0 1000 460" aria-label="斜面與鈴鐺">
+        <defs>
+          <filter id="wobble" x="-5%" y="-5%" width="110%" height="110%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.015" numOctaves="2" seed="7" result="n"></feTurbulence>
+            <feDisplacementMap in="SourceGraphic" in2="n" scale="2.2"></feDisplacementMap>
+          </filter>
+        </defs>
+        <g id="static" filter="url(#wobble)"></g>
+        <g id="gaps"></g>
+        <g id="bells"></g>
+        <g id="ball"></g>
+        <g id="fx"></g>
+        <text class="corner" x="20" y="448">圖示角度已放大以便觀看（實際為 5° 或 10°）</text>
+      </svg>
+    </div>
+
+    <div class="card controls">
+      <div class="row">
+        <div class="seg"><span>斜面角度</span>
+          <button data-angle="5" class="ang on">5°</button>
+          <button data-angle="10" class="ang">10°</button>
+        </div>
+        <button id="reset">↺ 重設鈴鐺</button>
+        <button id="restore">回復初始設定</button>
+        <label class="chk" title="以「球抵達第一顆鈴的時間」為一拍"><input type="checkbox" id="metro"> 節拍器</label>
+      </div>
+      <div id="sel" class="row sel"></div>
+      <p class="tip" id="guide-tip">🔈 請開啟聲音。電腦或平板可直接拖曳鈴鐺；手機請先點擊鈴鐺，再用 ◀ ▶ 微調，或直接點斜面上的刻度。</p>
+    </div>
+
+    <div class="card tapes">
+      <h3>錄音帶（每個聲音畫一道刻痕）</h3>
+      <div id="tapes"></div>
+    </div>
+  </section>
+</main>
+
+<!-- 學生資訊輸入彈跳視窗 -->
+<div id="student-modal" class="modal-overlay" style="display:none">
+  <div class="modal-window">
+    <button class="modal-close-btn" id="btn-close-std-modal" title="關閉">✕</button>
+    <h3 class="modal-title">📝 請輸入學生個人資料</h3>
+    <p style="margin:0 0 12px;color:var(--ink-light);font-size:0.95rem">即將為您匯整本活動的全程學習記錄，請先確認您的班級與姓名：</p>
+    <div class="student-form-row">
+      <div class="student-form-field">
+        <label for="std-class">班級</label>
+        <input type="text" id="std-class" placeholder="例：八年三班" value="">
+      </div>
+      <div class="student-form-field">
+        <label for="std-seat">座號</label>
+        <input type="text" id="std-seat" placeholder="例：15" value="">
+      </div>
+      <div class="student-form-field">
+        <label for="std-name">姓名</label>
+        <input type="text" id="std-name" placeholder="例：王小明" value="">
+      </div>
+    </div>
+    <div id="std-form-msg" style="color:var(--ochre);font-size:0.9rem;font-weight:700;margin-bottom:8px"></div>
+    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:10px">
+      <button id="btn-cancel-student">取消</button>
+      <button id="btn-confirm-student" class="primary">下一步：預覽確認報告 ▶</button>
+    </div>
+  </div>
+</div>
+
+<!-- 報告預覽確認彈跳視窗 -->
+<div id="preview-modal" class="modal-overlay" style="display:none">
+  <div class="modal-window" style="max-width:820px">
+    <button class="modal-close-btn" id="btn-close-preview-modal" title="關閉並返回主畫面">✕</button>
+    <h3 class="modal-title">📑 學習歷程報告預覽與確認</h3>
+    <p style="margin:0 0 10px;color:var(--ink-light);font-size:0.95rem">請檢視下方學習歷程報告內容，確認無誤後即可點選「一鍵下載 PDF」儲存：</p>
+    
+    <div id="report-paper" class="report-paper">
+      <!-- 報告動態內容由 JS 產生 -->
+    </div>
+
+    <div id="modal-ctrl-row" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-top:14px">
+      <div style="display:flex;gap:8px">
+        <button id="btn-back-edit">✏️ 返回修改心得</button>
+        <button id="btn-back-main">🏠 回主畫面</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span id="pdf-status-msg" style="font-size:0.9rem;color:var(--ochre);font-weight:700"></span>
+        <button id="btn-download-pdf" class="primary" style="font-size:1.05rem;padding:9px 24px">📥 確認無誤，一鍵下載 PDF 學習報告</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="site-footer" style="text-align: right; margin-top: 40px; padding-bottom: 20px; font-size: 0.9em; color: #666; padding-right: 20px;">by Jay`s Lab 紅樓老頭子 系統版本：v3.5</div>
+
+<script>
+const G = 9.8, LEN = 8, TMAX = 5.8;
+const BELLS = [
+  {name:'Do',   freq:523.25,  color:'#c9662e'},
+  {name:'Mi',   freq:659.25,  color:'#d9a43a'},
+  {name:'Sol',  freq:783.99,  color:'#7f9b6e'},
+  {name:'高音Do',freq:1046.50, color:'#6b7fa3'},
+];
+const DEFAULT = [2, 4, 6, 8];
+const KEY = 'galileo-bells-v1';
+
+function getInitialState(){
+  return {
+    angle: 5,
+    bells: [...DEFAULT],
+    act: 0,
+    selected: null,
+    revealed: false,
+    table: ['', '', '', ''],
+    tapes: {},
+    solved: false,
+    ext: '',
+    tableOK: false,
+    tableResMsg: '',
+    extOK: false,
+    extFbMsg: '',
+    act1Played: false,
+    act1QuizDone: false,
+    act1SelectedOpt: null,
+    act3QuizDone: false,
+    act3SelectedOpt: null,
+    act4Ans: '',
+    act4QuizDone: false,
+    act4FbMsg: '',
+    act4ChoiceSelected: null,
+    act4ChoiceDone: false,
+    act5Q1Selected: null,
+    act5Q1Done: false,
+    act5Q2Selected: null,
+    act5Q2Done: false,
+    studentInfo: {
+      className: '',
+      seatNumber: '',
+      name: ''
+    },
+    reflection: {
+      discovery: '',
+      thoughts: ''
+    },
+    history: {
+      playCount: 0,
+      act0Played: false,
+      act1Attempts: [],
+      act2Attempts: [],
+      act3CheckedCount: 0,
+      act3QuizAttempts: [],
+      act3FinalBells: null,
+      act3Intervals: [],
+      act4Attempts: [],
+      act4ChoiceAttempts: [],
+      act5Tested5: false,
+      act5Tested10: false,
+      act5Q1Attempts: [],
+      act5Q2Attempts: [],
+      act6Attempts: [],
+      startTime: new Date().toLocaleString('zh-TW', {hour12: false})
+    }
+  };
+}
+
+try{ localStorage.removeItem(KEY); }catch(e){}
+function load(){ return null; }
+function save(){ }
+
+let state = getInitialState();
+let running = null, dragging = null, metro = false;
+
+const getStepUnit = () => (state.act === 8 ? 0.1 : 0.5);
+const isBellLocked = () => state.act === 0 || state.act === 1;
+
+const accel = () => (5/7) * G * Math.sin(state.angle*Math.PI/180);
+const timeAt = x => Math.sqrt(2*x/accel());
+const fmt = t => t.toFixed(2);
+
+const FOOT = {x:930, y:402}, RL = 800;
+function geo(){
+  const phi = state.angle*2.4*Math.PI/180;
+  const d = {x:Math.cos(phi), y:Math.sin(phi)};
+  const n = {x:Math.sin(phi), y:-Math.cos(phi)};
+  return {phi, d, n, start:{x:FOOT.x-RL*d.x, y:FOOT.y-RL*d.y}};
+}
+function P(s, off=0){
+  const g = geo(), k = s/LEN*RL;
+  return {x:g.start.x+k*g.d.x+off*g.n.x, y:g.start.y+k*g.d.y+off*g.n.y};
+}
+const pt = p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`;
+
+const svg = document.getElementById('ramp');
+const $ = id => document.getElementById(id);
+
+function drawStatic(){
+  const g = geo(); let h = '';
+  h += `<path class="ground" d="M20 418 Q 300 414 520 418 T 980 418"/>`;
+  const s0=P(0), s1=P(LEN), u0=P(0,-16), u1=P(LEN,-16);
+  h += `<rect class="wood2" x="${s0.x-4}" y="${u0.y-2}" width="22" height="${418-u0.y+2}" rx="3"/>`;
+  h += `<polygon class="wood" points="${pt(s0)} ${pt(s1)} ${pt(u1)} ${pt(u0)}"/>`;
+  const r0=P(0,70), r1=P(LEN,70);
+  h += `<line class="post" x1="${s0.x}" y1="${s0.y}" x2="${r0.x}" y2="${r0.y}"/>`;
+  h += `<line class="post" x1="${s1.x}" y1="${s1.y}" x2="${r1.x}" y2="${r1.y}"/>`;
+  h += `<line class="rail" x1="${r0.x}" y1="${r0.y}" x2="${r1.x}" y2="${r1.y}"/>`;
+  
+  const step = getStepUnit();
+  for(let s=0; s<=LEN+1e-9; s+=step){
+    const isInt = Math.abs(s-Math.round(s))<1e-5;
+    const isHalf = Math.abs(s*2-Math.round(s*2))<1e-5;
+    const tickLen = isInt ? -14 : (isHalf ? -9 : -5);
+    const a=P(s,-2), b=P(s,tickLen);
+    h += `<line class="tick" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"/>`;
+    if(isInt){
+      const t=P(s,-30);
+      h += `<text class="lbl" x="${t.x}" y="${t.y}">${Math.round(s)}${Math.round(s)===LEN?' m':''}</text>`;
+    }
+  }
+  const deg = state.angle*2.4*Math.PI/180;
+  h += `<path class="arc" d="M ${FOOT.x-70} ${FOOT.y} A 70 70 0 0 1 ${FOOT.x-70*Math.cos(deg)} ${FOOT.y-70*Math.sin(deg)}"/>`;
+  h += `<text class="lbl" x="${FOOT.x-92}" y="${FOOT.y-12}" style="fill:#c9662e;font-weight:700">${state.angle}°</text>`;
+  $('static').innerHTML = h;
+
+  let hits = '';
+  for(let s=step; s<=LEN+1e-9; s+=step){
+    const a=P(s,-1), b=P(s,-16);
+    hits += `<line class="hit" data-s="${s.toFixed(2)}" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"/>`;
+  }
+  $('gaps').insertAdjacentHTML('beforebegin', `<g id="hits">${hits}</g>`);
+  const old = svg.querySelectorAll('#hits'); if(old.length>1) old[0].remove();
+}
+
+function bellPath(){ return 'M-10,0 Q-12,-6 -9,-14 Q-6,-24 0,-26 Q6,-24 9,-14 Q12,-6 10,0 Z'; }
+
+function drawBells(){
+  const gp = $('bells'); gp.innerHTML = '';
+  const g = geo(), r0 = P(0,70), tan = Math.tan(g.phi);
+  state.bells.forEach((s,i)=>{
+    const Q = P(s,30);
+    const railY = r0.y + (Q.x-r0.x)*tan;
+    const el = document.createElementNS('http://www.w3.org/2000/svg','g');
+    el.setAttribute('class','bell'+(state.selected===i?' selected':''));
+    el.setAttribute('transform',`translate(${Q.x.toFixed(1)},${Q.y.toFixed(1)})`);
+    el.dataset.i = i;
+    el.innerHTML = `
+      <line class="string" x1="0" y1="${(railY-Q.y).toFixed(1)}" x2="0" y2="-34"/>
+      <g class="swing" style="transform-origin:0px ${(railY-Q.y).toFixed(1)}px">
+        <g transform="scale(1.3)"><path class="body" d="${bellPath()}" fill="${BELLS[i].color}"/><circle class="clap" cx="0" cy="-1" r="2.4"/></g>
+      </g>
+      <text class="pos" x="16" y="-18">${s.toFixed(state.act===8?2:1)} m</text>
+      <rect x="-22" y="-44" width="44" height="52" fill="transparent"/>`;
+    gp.appendChild(el);
+  });
+}
+
+function drawBall(x){
+  const c = P(x,13), rot = (x/LEN*RL)/13*180/Math.PI;
+  $('ball').innerHTML = `<g transform="translate(${c.x.toFixed(1)},${c.y.toFixed(1)}) rotate(${rot.toFixed(1)})">
+    <circle class="ball-main" r="13"/><circle class="ball-hi" cx="-4" cy="-5" r="5"/><circle class="ball-dot" cx="0" cy="8" r="2"/></g>`;
+}
+
+function drawGaps(){
+  const show = state.act===4 || (state.solved && state.act>=4);
+  if(!show){ $('gaps').innerHTML=''; return; }
+  let h = '';
+  const unit = getStepUnit();
+  state.bells.forEach((s,i)=>{
+    const prev = i? state.bells[i-1] : 0, gap = s-prev, mid=(s+prev)/2;
+    const a=P(prev,-40), b=P(s,-40), a2=P(prev,-34), b2=P(s,-34), t=P(mid,-58);
+    const col = BELLS[i].color;
+    h += `<path class="gap-line" stroke="${col}" d="M${pt(a2)} L${pt(a)} L${pt(b)} L${pt(b2)}"/>`;
+    const unitText = state.act===8 ? `${gap.toFixed(2)} m` : `${gap.toFixed(1)} m ＝ ${Math.round(gap/unit)} 格`;
+    h += `<text class="gap-txt" fill="${col}" x="${t.x}" y="${t.y}">${unitText}</text>`;
+  });
+  $('gaps').innerHTML = h;
+}
+
+function redraw(){
+  drawStatic(); drawBells(); drawGaps();
+  if(!running) drawBall(0);
+  document.querySelectorAll('.ang').forEach(b=>b.classList.toggle('on', +b.dataset.angle===state.angle));
+  svg.classList.toggle('locked-bells', isBellLocked());
+  const resetBtn = $('reset');
+  if(resetBtn){
+    resetBtn.disabled = isBellLocked();
+    resetBtn.title = isBellLocked() ? '第 0 幕與第 1 幕鈴鐺固定等距擺放，無法調整' : '';
+  }
+  const guideTip = $('guide-tip');
+  if(guideTip){
+    guideTip.textContent = state.act === 8
+      ? '🔬 第 8 幕自由探究：刻度精度切換為 0.1 m（10 cm），每次按鍵微調 0.1 m，可盡情探索各種擺設組合！'
+      : '🔈 請開啟聲音。電腦或平板可直接拖曳鈴鐺；手機請先點擊鈴鐺，再用 ◀ ▶ 微調，或直接點斜面上的刻度。';
+  }
+  renderSel(); renderTapes();
+}
+
+function canPlace(i,s){
+  if(isBellLocked()) return false;
+  const unit = getStepUnit();
+  if(s < unit-1e-5 || s > LEN+1e-5) return false;
+  if(i>0 && s <= state.bells[i-1]+1e-5) return false;
+  if(i<3 && s >= state.bells[i+1]-1e-5) return false;
+  return true;
+}
+function placeBell(i,s){
+  if(isBellLocked()) return false;
+  const unit = getStepUnit();
+  s = Math.round(s/unit)*unit;
+  s = parseFloat(s.toFixed(2));
+  if(!canPlace(i,s)) return false;
+  if(Math.abs(state.bells[i] - s) < 1e-5) return true;
+  state.bells[i]=s; state.solved=false; state.revealed=false;
+  save(); drawBells(); drawGaps(); renderSel(); renderTapes();
+  if(state.act===3) renderGuide();
+  return true;
+}
+function svgPt(e){
+  const p = svg.createSVGPoint(); p.x=e.clientX; p.y=e.clientY;
+  return p.matrixTransform(svg.getScreenCTM().inverse());
+}
+function projectS(p){
+  const g = geo();
+  return ((p.x-g.start.x)*g.d.x + (p.y-g.start.y)*g.d.y)/RL*LEN;
+}
+svg.addEventListener('pointerdown', e=>{
+  if(running) return;
+  if(isBellLocked()){
+    if(e.target.closest('.bell') || e.target.closest('.hit')){
+      flashSel('🔒 第 0 幕與第 1 幕為等距觀察階段，鈴鐺位置已鎖定（請至第 3 幕再動手擺放）');
+    }
+    return;
+  }
+  const bell = e.target.closest('.bell');
+  if(bell){
+    const i = +bell.dataset.i; state.selected=i; dragging=i;
+    bell.classList.add('dragging'); svg.setPointerCapture(e.pointerId);
+    drawBells(); renderSel(); e.preventDefault(); return;
+  }
+  const hit = e.target.closest('.hit');
+  if(hit && state.selected!==null){
+    const ok = placeBell(state.selected, parseFloat(hit.dataset.s));
+    if(!ok) flashSel('這格會和其他鈴鐺順序衝突，換一格試試');
+  }
+});
+svg.addEventListener('pointermove', e=>{
+  if(dragging===null) return;
+  const s = projectS(svgPt(e));
+  const unit = getStepUnit();
+  let snapped = Math.round(s/unit)*unit;
+  const i = dragging;
+  const lo = i>0? state.bells[i-1]+unit : unit, hi = i<3? state.bells[i+1]-unit : LEN;
+  snapped = Math.min(hi, Math.max(lo, snapped));
+  placeBell(i, snapped);
+});
+const endDrag = ()=>{ if(dragging!==null){ dragging=null; drawBells(); } };
+svg.addEventListener('pointerup', endDrag); svg.addEventListener('pointercancel', endDrag);
+
+let selMsgTimer=null;
+function flashSel(msg){ const el=$('sel'); el.dataset.msg=msg; renderSel(); clearTimeout(selMsgTimer); selMsgTimer=setTimeout(()=>{delete el.dataset.msg; renderSel();},2200); }
+function renderSel(){
+  const el = $('sel');
+  if(isBellLocked()){
+    el.innerHTML = el.dataset.msg
+      ? `<span class="no">${el.dataset.msg}</span>`
+      : '<span style="color:var(--ink-light)">🔒 目前為固定等距（2、4、6、8 m）觀察階段，鈴鐺位置已鎖定。</span>';
+    return;
+  }
+  const i = state.selected;
+  if(i===null){
+    el.innerHTML = el.dataset.msg ? `<span class="no">${el.dataset.msg}</span>` : '';
+    return;
+  }
+  const b = BELLS[i], s = state.bells[i];
+  const unit = getStepUnit();
+  const stepLabel = unit === 0.1 ? '0.1 m' : '0.5 m';
+  const leftS = parseFloat((s - unit).toFixed(2));
+  const rightS = parseFloat((s + unit).toFixed(2));
+
+  el.innerHTML = `<span class="sw" style="background:${b.color}"></span>第 ${i+1} 顆（${b.name}）位置 <b>${s.toFixed(unit===0.1?2:1)} m</b>
+    <button id="mv-l" ${canPlace(i,leftS)?'':'disabled'}>◀ ${stepLabel}</button>
+    <button id="mv-r" ${canPlace(i,rightS)?'':'disabled'}>${stepLabel} ▶</button>
+    <button id="mv-x">取消選取</button>
+    ${el.dataset.msg? `<span class="no">${el.dataset.msg}</span>`:''}`;
+  $('mv-l').onclick = ()=>placeBell(i,leftS);
+  $('mv-r').onclick = ()=>placeBell(i,rightS);
+  $('mv-x').onclick = ()=>{ state.selected=null; drawBells(); renderSel(); };
+}
+
+let ctx=null;
+function ac(){
+  if(!ctx) ctx = new (window.AudioContext||window.webkitAudioContext)();
+  if(ctx.state==='suspended') ctx.resume();
+  return ctx;
+}
+function bellSound(freq,t){
+  const c=ac(), g=c.createGain(); g.connect(c.destination);
+  g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.5,t+0.006);
+  g.gain.exponentialRampToValueAtTime(0.0005,t+0.8);
+  [[1,1],[2.0,0.35],[3.01,0.12]].forEach(([m,v])=>{
+    const o=c.createOscillator(), gg=c.createGain(); o.type='sine'; o.frequency.value=freq*m; gg.gain.value=v;
+    o.connect(gg).connect(g); o.start(t); o.stop(t+0.9);
+  });
+}
+function clickSound(t){
+  const c=ac(), len=Math.floor(c.sampleRate*0.04), buf=c.createBuffer(1,len,c.sampleRate), d=buf.getChannelData(0);
+  for(let i=0;i<len;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/len,2);
+  const src=c.createBufferSource(); src.buffer=buf;
+  const f=c.createBiquadFilter(); f.type='bandpass'; f.frequency.value=1800; f.Q.value=1.2;
+  const g=c.createGain(); g.gain.value=0.9;
+  src.connect(f).connect(g).connect(c.destination); src.start(t);
+}
+function tickSound(t){
+  const c=ac(), o=c.createOscillator(), g=c.createGain(); o.type='square'; o.frequency.value=1500;
+  g.gain.setValueAtTime(0.12,t); g.gain.exponentialRampToValueAtTime(0.0005,t+0.05);
+  o.connect(g).connect(c.destination); o.start(t); o.stop(t+0.06);
+}
+
+function playQuizSound(isCorrect){
+  const c = ac();
+  const t = c.currentTime;
+  if(isCorrect){
+    [523.25, 659.25, 783.99].forEach((freq, idx)=>{
+      const o = c.createOscillator(), g = c.createGain();
+      o.type = 'triangle';
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.0001, t + idx * 0.09);
+      g.gain.exponentialRampToValueAtTime(0.2, t + idx * 0.09 + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + idx * 0.09 + 0.28);
+      o.connect(g).connect(c.destination);
+      o.start(t + idx * 0.09);
+      o.stop(t + idx * 0.09 + 0.3);
+    });
+  } else {
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(190, t);
+    o.frequency.exponentialRampToValueAtTime(110, t + 0.25);
+    g.gain.setValueAtTime(0.16, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+    o.connect(g).connect(c.destination);
+    o.start(t);
+    o.stop(t + 0.26);
+  }
+}
+
+function run(){
+  if(running) return;
+  const c = ac(), a = accel();
+  const t0 = c.currentTime + 0.4;
+  const times = state.bells.map(x=>Math.sqrt(2*x/a));
+  const tEnd = Math.sqrt(2*LEN/a);
+  clickSound(t0);
+  times.forEach((t,i)=>bellSound(BELLS[i].freq, t0+t));
+  if(metro){ const p=times[0]; for(let k=0;k*p<=tEnd+0.02;k++) tickSound(t0+k*p); }
+  running = {t0,a,times,tEnd,rung:[false,false,false,false],startedTapeAngle:state.angle};
+
+  state.history.playCount++;
+  if(state.act === 0) state.history.act0Played = true;
+  if(state.act === 1) state.act1Played = true;
+  if(state.act === 5){
+    if(state.angle === 5) state.history.act5Tested5 = true;
+    if(state.angle === 10) state.history.act5Tested10 = true;
+  }
+
+  state.selected=null; drawBells(); renderSel();
+  $('go').disabled=true; document.querySelectorAll('.ang,#reset,#restore').forEach(b=>b.disabled=true);
+  requestAnimationFrame(frame);
+}
+function frame(){
+  if(!running) return;
+  const t = ctx.currentTime - running.t0;
+  let x = t<0? 0 : 0.5*running.a*t*t, done=false;
+  if(x>=LEN){ x=LEN; done=true; }
+  drawBall(x);
+  running.times.forEach((ti,i)=>{
+    if(!running.rung[i] && t>=ti){
+      running.rung[i]=true;
+      const el = $('bells').children[i]; el.classList.remove('ring'); void el.offsetWidth; el.classList.add('ring');
+    }
+  });
+  renderTapes(t);
+  if(done){
+    state.tapes[state.angle] = {times:running.times, tEnd:running.tEnd, bells:[...state.bells]};
+    running=null; save();
+    $('go').disabled=false; document.querySelectorAll('.ang,#reset,#restore').forEach(b=>b.disabled=false);
+    renderTapes(); renderGuide();
+  } else requestAnimationFrame(frame);
+}
+
+function tapeHTML(angle, data, liveT){
+  const same = JSON.stringify(data.bells)===JSON.stringify(state.bells);
+  const marks = [0, ...data.times];
+  const colors = ['#4a3b2f', ...BELLS.map(b=>b.color)];
+  let h = `<div class="tape ${same?'':'stale'}"><span class="who">${angle}° ${same?'':'（鈴鐺已移動，這是舊的紀錄）'}</span><div class="strip">`;
+  marks.forEach((t,i)=>{
+    if(liveT!==undefined && t>liveT) return;
+    h += `<div class="tk" style="left:${t/TMAX*100}%;background:${colors[i]}"></div>`;
+    const showInterval = (state.act === 8 || (state.revealed && same)) && i > 0 && (liveT === undefined || t <= liveT);
+    if(showInterval){
+      const iv = t-marks[i-1], mid=(t+marks[i-1])/2;
+      h += `<div class="iv" style="left:${mid/TMAX*100}%">${fmt(iv)} s</div>`;
+    }
+  });
+  if(liveT!==undefined) h += `<div class="ph" style="left:${Math.min(liveT,TMAX)/TMAX*100}%"></div>`;
+  h += `</div></div>`;
+  return h;
+}
+function renderTapes(liveT){
+  let h='';
+  const angles=[5,10];
+  angles.forEach(a=>{
+    if(running && a===state.angle){
+      h += tapeHTML(a,{times:running.times,tEnd:running.tEnd,bells:state.bells}, liveT);
+    } else if(state.tapes[a]) h += tapeHTML(a,state.tapes[a]);
+  });
+  if(!h) h = `<p class="tape-empty">還沒有紀錄。按「放球」之後，每個聲音會在這裡留下一道刻痕。</p>`;
+  else h += `<p class="small">兩條錄音帶使用相同的時間尺度，方便比較。</p>`;
+  $('tapes').innerHTML = h;
+}
+
+function intervals(){ const ts=[0,...state.bells.map(timeAt)]; return ts.slice(1).map((t,i)=>t-ts[i]); }
+function isEven(){ const iv=intervals(); return Math.max(...iv)-Math.min(...iv) < 1e-4; }
+
+function canAdvanceAct(actIndex){
+  if(actIndex === 1) return state.act1QuizDone === true;
+  if(actIndex === 2) return state.tableOK === true;
+  if(actIndex === 3) return state.solved === true && isEven() && state.act3QuizDone === true;
+  if(actIndex === 4) return state.act4QuizDone === true && state.act4ChoiceDone === true;
+  if(actIndex === 5) return Boolean(state.tapes[5] && state.tapes[10] && state.act5Q1Done && state.act5Q2Done);
+  if(actIndex === 6) return state.extOK === true;
+  if(actIndex === 7) return Boolean((state.reflection.discovery || '').trim() && (state.reflection.thoughts || '').trim());
+  return true;
+}
+
+function canJumpTo(targetAct){
+  if(targetAct <= state.act) return true;
+  for(let k = state.act; k < targetAct; k++){
+    if(!canAdvanceAct(k)) return false;
+  }
+  return true;
+}
+
+function evenResultHTML(){
+  const iv = intervals();
+  if(!isEven()){
+    return `<span class="no">還沒有均等喔。</span>四段間隔分別是 ${iv.map(fmt).join('、')} 秒。看看哪一段比較長或比較短，再移動對應顏色的鈴鐺。`;
+  }
+
+  // 第 3 幕 正解洗牌至 C
+  const opts = [
+    { id: 'A', text: 'A. 相鄰間距比是 1 : 2 : 3 : 4，每段間距依序多增加 0.5 m。', correct: false },
+    { id: 'B', text: 'B. 相鄰間距比是 1 : 4 : 9 : 16，因為距離與時間平方成正比，所以相鄰間距也是平方比。', correct: false },
+    { id: 'C', text: 'C. 相鄰間距比是 1 : 3 : 5 : 7，呈現連續奇數的規律（每段間距都比前一段多走 1.0 m）。', correct: true }
+  ];
+
+  return `
+    <div style="margin-bottom:10px">
+      <span class="ok">🎉 太棒了！每個聲音的間隔都是 ${fmt(iv[0])} 秒！</span><br>
+      你的鈴鐺位置分別在：<b>${state.bells.map(b=>b.toFixed(1)).join('、')} m</b>。
+    </div>
+    <div class="quiz-box" style="margin-top:10px;border-top:1.5px dashed var(--line);padding-top:10px">
+      <h4 style="margin:0 0 8px;color:var(--ochre)">💡 動動腦思考題：仔細觀察相鄰鈴鐺之間的「間距」（第1段 0.5 m、第2段 1.5 m、第3段 2.5 m、第4段 3.5 m），這四段間距呈現了什麼數學規律？</h4>
+      ${opts.map(opt=>{
+        let cls = 'quiz-opt act3-quiz-opt';
+        if(state.act3SelectedOpt === opt.id){
+          cls += opt.correct ? ' opt-correct' : ' opt-wrong';
+        } else if(state.act3QuizDone && opt.correct){
+          cls += ' opt-correct';
+        }
+        return `<button class="${cls}" data-opt="${opt.id}">${opt.text}</button>`;
+      }).join('')}
+      <div id="act3-quiz-fb" class="quiz-feedback" style="margin-top:8px">
+        ${state.act3QuizDone 
+          ? '<span class="ok">🎉 完全正確！間距比正是 1 : 3 : 5 : 7！注意別把「總距離 (1:4:9:16)」跟「相鄰間距 (1:3:5:7)」搞混囉。請點選「下一幕」解開奇數定律的秘密 ▶</span>' 
+          : (state.act3SelectedOpt ? '<span class="no">再算算看：0.5、1.5、2.5、3.5 如果都除以 0.5，比值是多少呢？（注意是相鄰間距，不是從起點算的總距離喔！）</span>' : '<span style="color:var(--ink-light)">請點選正確選項以解鎖下一幕 ▶</span>')}
+      </div>
+    </div>
+  `;
+}
+
+const ACTS = [
+{ title:'第 0 幕｜回顧', html:()=>`
+  <p>經過「伽利略的斜面實驗」我們發現，「銅球從靜止滾下斜面時，<b>走過的距離和時間的平方成正比</b>」，也就是時間變 2 倍，距離變 4 倍；時間變 3 倍，距離變 9 倍。</p>
+  <p>這次我們不用水鐘來計時，改用<b>耳朵</b>來聽聲音，驗證之前學到的數學規律。</p>
+  <div class="fact"><b>伽利略小補充</b>　伽利略的父親是音樂家（琉特琴演奏家與音樂理論家），伽利略自己也精通音樂。因為當時沒有準確的秒錶計時工具，科學史家推測他可能借助音樂的節拍來協助計時。所以「聽聲音的節奏」也可以是一種實驗的方法。</div>
+  <p class="small">請先確認電腦或手機的聲音是開著的，按一次「▶ 放球」試聽看看，也可以多聽幾次。準備好就進下一幕。</p>` },
+
+{ title:'第 1 幕｜先聽再說', html:()=>{
+  const hasRun = Boolean(state.act1Played || state.tapes[5] || state.tapes[10]);
+  let content = `
+    <p>現在四顆鈴鐺是<b>等距</b>擺放（2、4、6、8 m）。請按「放球」，仔細聽五個聲音：一聲「咔」之後（球開始滾動），加上四個鈴鐺的聲音。</p>
+    <div class="q">四段聲音間隔一樣長嗎？是越來越快，還是越來越慢？<br>你也可以看看下方的「錄音帶」，刻痕的分佈是均勻等長的嗎？</div>`;
+
+  if(!hasRun){
+    content += `<p class="tip no">👉 請先點選右上方的「▶ 放球」聆聽鈴鐺節奏，聽完後才會開啟挑戰題目喔！</p>`;
+  } else {
+    // 第 1 幕 正解洗牌至 B
+    const opts = [
+      { id: 'A', text: 'A. 斜面後段的摩擦力自動變小，使銅球在尾端突然加速前進。', correct: false },
+      { id: 'B', text: 'B. 斜面傾斜使銅球向下滾動時速度越來越快，通過相同距離所花的時間越來越短。', correct: true },
+      { id: 'C', text: 'C. 後面的鈴鐺比較重、彈簧比較緊，因此受到碰撞時反應比較靈敏。', correct: false }
+    ];
+
+    content += `
+      <div class="quiz-box">
+        <h4 style="margin:0 0 8px;color:var(--ochre)">💡 動動腦思考題：為什麼等距擺放的鈴鐺，聲音聽起來卻越來越急促？</h4>
+        ${opts.map(opt=>{
+          let cls = 'quiz-opt';
+          if(state.act1SelectedOpt === opt.id){
+            cls += opt.correct ? ' opt-correct' : ' opt-wrong';
+          } else if(state.act1QuizDone && opt.correct){
+            cls += ' opt-correct';
+          }
+          return `<button class="${cls}" data-opt="${opt.id}">${opt.text}</button>`;
+        }).join('')}
+        <div id="act1-quiz-fb" class="quiz-feedback">
+          ${state.act1QuizDone ? '<span class="ok">🎉 答對了！球越滾越快，走相同距離的時間自然變短。現在可以進入下一幕了！</span>' : (state.act1SelectedOpt ? '<span class="no">再想想看：鈴鐺的材質與斜面摩擦力都沒改變，是什麼在改變呢？</span>' : '')}
+        </div>
+        <details class="hint" style="margin-top:10px">
+          <summary>查看思考提示</summary>
+          因為球在往下滾的過程中速度一直在增加，若走過相同的距離，所花的時間會越來越短。所以若相同距離擺放鈴鐺，當球撞擊鈴鐺的聲音聽起來就會越來越急促。
+        </details>
+      </div>`;
+  }
+  return content;
+} },
+
+{ title:'第 2 幕｜動腦預測', html:()=>`
+  <p>我們的目標是想讓銅球敲響鈴鐺聲音的<b>「時間間隔完全相同」，要如何擺放鈴鐺呢</b>？</p>
+  <p>如果「球開始滾下到敲響第一顆鈴鐺」的時間是 <b> t 秒</b>，並且先把第一顆鈴鐺放在 <b>0.5 m</b>的位置。</p>
+  <div class="q">想一想：經過「伽利略的斜面實驗」，我們已經知道「距離」和「時間²」成正比，已經知道t秒時銅球走了 0.5m 的位置、那麼在2t秒、3t秒、4t秒 時，球會分別走到幾公尺(m)的地方呢？</div>
+  <table class="tbl"><tr><th>時間(s)</th><th>t</th><th>2t</th><th>3t</th><th>4t</th></tr>
+  <tr><th>距離 (m)</th>${[0,1,2,3].map(i=>`<td><input class="tin" data-i="${i}" inputmode="decimal" value="${state.table[i]}"></td>`).join('')}</tr></table>
+  <button id="chk-table">檢查</button> <span id="table-res">${state.tableResMsg || ''}</span>
+  <details class="hint"><summary>提示 1</summary>第一顆鈴鐺在 0.5 m，這就是「t秒」走的距離。</details>
+  <details class="hint"><summary>提示 2</summary>「距離」和「時間²」成正比，那麼時間變 2 倍，距離會變成幾倍？2 t秒走的距離會是 0.5 × ？ = ？　</details>
+  <details class="hint"><summary>提示 3</summary>時間比是 1 : 2 : 3 : 4，那距離比會是如何呢？</details>` },
+
+{ title:'第 3 幕｜動手擺鈴鐺、耳朵聽聲音', html:()=>`
+  <p>依照第 2 幕的預測擺放鈴鐺的位置(電腦與平板可直接拖曳鈴鐺；手機板請先點擊鈴鐺，再用 ◀ ▶ 微調，或點擊刻度)，擺好鈴鐺就點擊「放球」按鈕，聽鈴鐺的聲音、看錄音帶刻痕，若時間間隔不對就修正鈴鐺位置。</p>
+  <div class="q">當你覺得每個時間間隔都相等了，按「我覺得均等了」按鈕，我會揭曉每一段時間間格是否相等。</div>
+  <button id="chk-even" class="primary">我覺得均等了</button>
+  <div id="even-res" class="result" ${state.revealed?'':'hidden'}>${evenResultHTML()}</div>
+  <details class="hint"><summary>提示</summary>點擊實驗裝置下方的「節拍器」：它會以「銅球開始滾下到撞擊第一顆鈴鐺的時間」為一拍。如果每一個鈴鐺聲音都剛好落在拍點上，表示你答對了。你也可以觀察錄音帶上哪一段刻痕不一樣長，再移動對應顏色的鈴鐺。</details>` },
+
+{ title:'第 4 幕｜發現奇數定律', html:()=>{
+  let h = '';
+  if(!state.solved){
+    h += `<p class="no">請你務必先在第 3 幕把鈴鐺位置擺對再來看這一幕。</p>`;
+  }
+  h += `<p>請你看看斜面上標出的<b>「相鄰兩個鈴鐺」的間距</b>。如果你擺對的話(相鄰兩鈴鐺聲音的時間間格相同)，「每個鈴鐺聲」所走的距離會是 0.5、1.5、2.5、3.5 m。如果用 0.5 m 當成一格，相鄰兩鈴鐺的間距就是 <b>1、3、5、7</b> 格，它們是連續的奇數耶！</p>`;
+
+  h += `<div class="quiz-box" style="margin:12px 0">
+    <h4 style="margin:0 0 6px;color:var(--ochre)">💡 動動腦填空題</h4>
+    <p style="margin:4px 0 8px">銅球每過一個單位時間，會比前一個單位時間<b>多走了幾格</b>？</p>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      多走了 <input class="num" id="act4-in" inputmode="numeric" value="${state.act4Ans}" style="width:70px;text-align:center" placeholder="？"> 格
+      <button id="chk-act4">檢查</button>
+      <span id="act4-fb">${state.act4FbMsg || ''}</span>
+    </div>
+    <details class="hint" style="margin-top:10px">
+      <summary>查看思考提示</summary>
+      例如： 1 格 → 3 格，這樣是多 2 格；3 → 5 多 ？，5 → 7 多 ？……
+    </details>
+  </div>`;
+
+  if(state.act4QuizDone){
+    // 第 4 幕 正解為 A
+    const choiceOpts = [
+      { id: 'A', text: 'A. 等加速度運動（速度隨時間均勻增加，單位時間的速度變化量相同）', correct: true },
+      { id: 'B', text: 'B. 等速度運動（速度快慢自始至終完全保持固定）', correct: false },
+      { id: 'C', text: 'C. 變加速度運動（加速度忽大忽小、毫無固定規律）', correct: false }
+    ];
+
+    h += `
+      <div class="quiz-box" style="margin-top:14px;border:1.5px solid var(--sage);background:rgba(240,248,240,.9)">
+        <h4 style="margin:0 0 8px;color:#2b5424">💡 動動腦概念題：每個單位時間「多走的距離」都一樣，表示銅球在進行什麼運動？</h4>
+        ${choiceOpts.map(opt=>{
+          let cls = 'quiz-opt act4-choice-opt';
+          if(state.act4ChoiceSelected === opt.id){
+            cls += opt.correct ? ' opt-correct' : ' opt-wrong';
+          } else if(state.act4ChoiceDone && opt.correct){
+            cls += ' opt-correct';
+          }
+          return `<button class="${cls}" data-opt="${opt.id}">${opt.text}</button>`;
+        }).join('')}
+        <div id="act4-choice-fb" class="quiz-feedback" style="margin-top:8px">
+          ${state.act4ChoiceDone 
+            ? '<span class="ok">🎉 完全正確！每經過一個單位時間速度增加相同量，這正是「等加速度運動」！</span>' 
+            : (state.act4ChoiceSelected ? '<span class="no">再想想看：銅球的速度一直在變快，怎麼會是等速度呢？增加的量固定又是什麼意思呢？</span>' : '<span style="color:var(--ink-light)">請點選正確概念以展開完整科學結論 ▶</span>')}
+        </div>
+      </div>
+    `;
+
+    if(state.act4ChoiceDone){
+      h += `<div class="result" style="margin-top:14px;border:1.5px solid var(--sage);background:rgba(127,155,110,.14)">
+        <p style="margin-top:0">所以自由落體運動是<b>等加速度運動</b>，伽利略把「物體作自由落體運動，在連續「相等的時間間隔」內（例如：第1秒內、第2秒內、第3秒內、第4秒內），位移比會是 <b>1 : 3 : 5 : 7 : 9 ......</b>」這樣的數學規律稱為<b>「奇數定律」</b>。</p>
+        <div class="fact"><b>兩種說法，同一件事</b><br>總距離比 1 : 4 : 9 : 16 和相鄰間距比 1 : 3 : 5 : 7 是一體兩面。<br>若把間距比相加可得：1 ＝ 1，1 + 3 ＝ 4，1 + 3 + 5 ＝ 9，1 + 3 + 5 + 7 ＝ 16。<br>連續奇數相加，永遠都會得到完全平方數！</div>
+      </div>`;
+    }
+  }
+  return h;
+} },
+
+{ title:'第 5 幕｜斜面角度變大會如何呢？', html:()=>{
+  const bothTested = Boolean(state.tapes[5] && state.tapes[10] && JSON.stringify(state.tapes[5].bells)===JSON.stringify(state.bells) && JSON.stringify(state.tapes[10].bells)===JSON.stringify(state.bells));
+  
+  let h = `
+    <p>鈴鐺位置<b>不變</b>，請點選按鈕切換斜面角度（5° 與 10° 各放一次球），聽聽看每個鈴鐺聲的時間間隔會如何變化？</p>
+    <div style="display:flex;gap:10px;margin-bottom:10px">
+      <button id="to10" ${state.angle===10?'disabled':''}>切到 10°</button>
+      <button id="to5" ${state.angle===5?'disabled':''}>切回 5°</button>
+    </div>
+    <div class="q">比較兩種不同的斜面角度，它們的「鈴鐺聲音間隔」與「錄音帶的刻痕」。什麼沒變？什麼變了？</div>
+  `;
+
+  if(!bothTested){
+    h += `<p class="tip no">👉 請先分別在 5° 與 10° 各按一次「▶ 放球」進行雙角度實驗比對，完成後就會開啟思考題！</p>`;
+    return h;
+  }
+
+  // 觀察題 (正解洗牌至 C)
+  const q1Opts = [
+    { id: 'A', text: 'A. 10° 的錄音帶刻痕整體變得比 5° 更寬鬆，代表角度變大球反而滾得更久。', correct: false },
+    { id: 'B', text: 'B. 10° 的錄音帶刻痕變得完全混亂不均勻，原本均勻的節奏完全失效。', correct: false },
+    { id: 'C', text: 'C. 10° 的錄音帶刻痕整體擠得比較密（聲音間隔變小、球滾得較快），但各刻痕之間依然保持均等。', correct: true }
+  ];
+
+  h += `
+    <div class="quiz-box" style="margin-top:14px;border:1.5px solid var(--ochre);background:rgba(255,250,238,.9)">
+      <h4 style="margin:0 0 8px;color:var(--ochre)">💡 探究題 1【觀察】：比較兩種角度的錄音帶刻痕與聲音節奏，你觀察到了什麼？</h4>
+      ${q1Opts.map(opt=>{
+        let cls = 'quiz-opt act5-q1-opt';
+        if(state.act5Q1Selected === opt.id){
+          cls += opt.correct ? ' opt-correct' : ' opt-wrong';
+        } else if(state.act5Q1Done && opt.correct){
+          cls += ' opt-correct';
+        }
+        return `<button class="${cls}" data-opt="${opt.id}">${opt.text}</button>`;
+      }).join('')}
+      <div id="act5-q1-fb" class="quiz-feedback" style="margin-top:6px">
+        ${state.act5Q1Done
+          ? '<span class="ok">🎉 觀察非常敏銳！10° 聲音間隔變小（刻痕變密），但各段依然完全等距！請接著回答「結論題」▼</span>'
+          : (state.act5Q1Selected ? '<span class="no">再仔細看看下方的兩條錄音帶：10° 的刻痕分布是更緊密還是更分散？各刻痕距離是否依然等長？</span>' : '')}
+      </div>
+    </div>
+  `;
+
+  // 結論題 (正解洗牌至 B)
+  if(state.act5Q1Done){
+    const q2Opts = [
+      { id: 'A', text: 'A. 角度變大後，奇數定律會失效，伽利略的自由落體規律只適用於特定 5° 傾角。', correct: false },
+      { id: 'B', text: 'B. 斜面角度改變會改變加速度大小（單位時間速度變化量變大），但「位移與時間²成正比」與「奇數定律」等規律依然完全不變。', correct: true },
+      { id: 'C', text: 'C. 斜面角度變大後，銅球轉變成了「等速度運動」，因此錄音帶各段刻痕才會呈現等距。', correct: false }
+    ];
+
+    h += `
+      <div class="quiz-box" style="margin-top:14px;border:1.5px solid var(--sage);background:rgba(240,248,240,.9)">
+        <h4 style="margin:0 0 8px;color:#2b5424">💡 探究題 2【結論】：從這個觀察中，我們可以推導出什麼重要的物理結論？</h4>
+        ${q2Opts.map(opt=>{
+          let cls = 'quiz-opt act5-q2-opt';
+          if(state.act5Q2Selected === opt.id){
+            cls += opt.correct ? ' opt-correct' : ' opt-wrong';
+          } else if(state.act5Q2Done && opt.correct){
+            cls += ' opt-correct';
+          }
+          return `<button class="${cls}" data-opt="${opt.id}">${opt.text}</button>`;
+        }).join('')}
+        <div id="act5-q2-fb" class="quiz-feedback" style="margin-top:6px">
+          ${state.act5Q2Done
+            ? '<span class="ok">🎉 恭喜完全答對！不論斜面傾斜幾度，自然界的數學規律恆久不變！</span>'
+            : (state.act5Q2Selected ? '<span class="no">再想想看：雖然滾動快慢（加速度）變了，但「位移與時間²成正比」以及「奇數定律」的核心關係有被破壞嗎？</span>' : '<span style="color:var(--ink-light)">請點選正確結論以完成本幕探究 ▶</span>')}
+        </div>
+      </div>
+    `;
+
+    if(state.act5Q2Done){
+      const t5Time = state.tapes[5] ? fmt(state.tapes[5].times[0]) : '';
+      const t10Time = state.tapes[10] ? fmt(state.tapes[10].times[0]) : '';
+      h += `
+        <div class="result" style="margin-top:14px;border:1.5px solid var(--sage);background:rgba(127,155,110,.14)">
+          <b>科學總結：</b><br>
+          • <b>觀察：</b>10° 的錄音帶刻痕整體擠得比較密，代表鈴鐺聲的時間間隔比較小，在距離相等的情況下，10° 的銅球滾得比較快。但 10° 的錄音帶每個刻痕之間仍然是等距的（時間間隔從 5° 的 ${t5Time} s 縮短為 10° 的 ${t10Time} s）。<br>
+          • <b>結論：</b>斜面角度改變，鈴鐺聲音的時間間隔會改變，在每個「單位時間」距離不變的情況下，「單位時間的速度變化量」會改變（即加速度的大小會改變），但<b>「規律」不變</b>。也就是「『位移』與『時間²』成正比」、「奇數定律」，都不會因為斜面的傾角而改變。
+        </div>
+      `;
+    }
+  }
+  return h;
+} },
+
+{ title:'第 6 幕｜延伸挑戰', html:()=>`
+  <div class="q">如果斜面夠長，<b>第五顆鈴鐺</b>應該放在離起點幾公尺的地方，才能讓鈴鐺聲音的節奏仍然均等？</div>
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+    <input class="num" id="ext" inputmode="decimal" value="${state.ext}" placeholder="？ m"> m
+    <button id="chk-ext">檢查</button>
+    <span id="ext-res">${state.extFbMsg || ''}</span>
+  </div>
+  <details class="hint"><summary>提示</summary>可以用兩種方法：距離比 1 : 4 : 9 : 16 : <b>25</b>；或間距 1、3、5、7、<b>9</b> 格，接在 8 m 後面。兩種方法答案應該一樣。</details>
+  <h3 style="margin:14px 0 4px;font-size:1.05rem">延伸閱讀：</h3>
+  <details><summary>為什麼這個模擬實驗用「滾動」而不是「滑動」？</summary><p class="small">球在斜面上滾動時，一部分能量用來讓球轉起來，所以比「無摩擦滑下來」慢。實心球沿斜面滾動的加速度，是同一斜面上無摩擦滑動的 5/7 倍。本模擬採用的就是實心球滾動的值，所以如果你真的拿球到斜面上做，時間會對得上。</p></details>
+  <details><summary>伽利略的筆記 f.107v</summary><p class="small">保存在佛羅倫斯的伽利略手稿中，有一頁（編號 f.107v）記錄了一組斜面實驗的數據，數字與「『位移』與『時間²』成正比」的規律吻合，被科學史家視為伽利略真的有作實驗探究自由落體規律的重要證據。</p></details>
+  <details><summary>一個曾經被考慮過的錯誤假說</summary><p class="small">伽利略曾經思考過「速度和走過的距離成正比」的可能，後來發現這會導出矛盾（若速度與距離成正比，靜止的物體根本無法開始運動），才確立「速度與時間成正比」——也就是等加速度。伽利略用邏輯檢驗去挑戰直覺，發現舊假設行不通後，才建立了正確的物理學基礎。科學裡走過的錯路，也是路的一部分，都不會是白走的。</p></details>` },
+
+{ title:'第 7 幕｜今日學習收穫與報告', html:()=>{
+  const hasDiscovery = Boolean((state.reflection.discovery || '').trim());
+  const hasThoughts = Boolean((state.reflection.thoughts || '').trim());
+  const isFilled = hasDiscovery && hasThoughts;
+
+  return `
+    <p>恭喜你走過伽利略的斜面與聲音實驗！現在讓我們把今天的觀察轉化為專屬於你的物理收穫與探究報告。</p>
+    <div class="reflection-box">
+      <div>
+        <label for="ref-discovery">🔍 我的發現：</label>
+        <div class="guide-note">
+          引導參考：<br>
+          1. 若要聽到的鈴鐺聲音時間隔相同，鈴鐺擺放的距離會跟 ________ 成正比。<br>
+          2. 斜面角度越大，則 ____________。
+        </div>
+        <textarea id="ref-discovery" placeholder="請寫下你在鈴鐺距離、聲音間隔與斜面傾角實驗中的科學發現...">${state.reflection.discovery || ''}</textarea>
+      </div>
+
+      <div>
+        <label for="ref-thoughts">💭 我的心得感想：</label>
+        <textarea id="ref-thoughts" placeholder="請寫下你今天使用耳朵聽聲音來驗證物理定律的心得感想、驚喜或是體會...">${state.reflection.thoughts || ''}</textarea>
+      </div>
+    </div>
+
+    <div style="margin-top:16px;text-align:center">
+      <button id="btn-open-report" class="primary" style="font-size:1.15rem;padding:10px 24px;width:100%">
+        📋 一鍵生成學習報告
+      </button>
+      <p class="small" style="margin-top:6px;color:var(--ink-light)">點擊後輸入個人資料，可先預覽確認全部作答紀錄與心得，再下載為專屬 PDF 檔！</p>
+    </div>
+
+    ${!isFilled ? `<p class="tip no" style="margin-top:10px">💡 小提醒：寫下「我的發現」與「我的心得感想」後，除了能生成完整報告，也能解鎖第 8 幕的「高精度自由探究模式」喔！</p>` : ''}
+  `;
+} },
+
+{ title:'第 8 幕｜完全自由探究', html:()=>`
+  <div class="result" style="border:1.5px solid var(--sage);background:rgba(127,155,110,.14)">
+    <h3 style="margin:0 0 6px;color:#2b5424">🔬 恭喜解鎖「高精度完全自由探究模式」！</h3>
+    <p style="margin:4px 0"><b>此操作介面與前面有何不同？</b></p>
+    <ul style="margin:4px 0 8px;padding-left:22px">
+      <li><b>刻度精度升級</b>：前幾幕的刻度與吸附單位是 <b>0.5 m（50 cm）</b>；而第 8 幕的刻度單位全面細化為 <b>0.1 m（10 cm）</b>！</li>
+      <li><b>微調按鈕升級</b>：鈴鐺選取後的微調按鈕變成 <b>◀ 0.1 m / 0.1 m ▶</b>，讓你能以更高精度微調位置。</li>
+      <li><b>無任何通關限制</b>：所有鈴鐺皆可隨意拖曳擺放，你能自行設計任意比例、測試 5° 與 10°，並隨時搭配節拍器驗證你的獨創猜想！</li>
+    </ul>
+  </div>
+  <div class="q">
+    <b>自由挑戰任務：</b><br>
+    如果你想讓第一顆鈴鐺放在 <b>0.2 m</b> 或 <b>0.8 m</b>，另外三顆鈴鐺要放在哪裡，才能再次奏出完全等距的節拍？動手試試看吧！
+  </div>` }
+];
+
+function renderGuide(){
+  const a = ACTS[state.act];
+  const canNext = canAdvanceAct(state.act);
+
+  let lockTip = '';
+  if(!canNext){
+    if(state.act === 1) lockTip = `<p class="tip no" style="margin-top:8px">🔒 請先「放球」聆聽，並答對選擇題確認理解後，方可開啟「下一幕」。</p>`;
+    else if(state.act === 2) lockTip = `<p class="tip no" style="margin-top:8px">🔒 請完成表格並點擊「檢查」確認全對後，方可開啟「下一幕」。</p>`;
+    else if(state.act === 3) lockTip = `<p class="tip no" style="margin-top:8px">🔒 請調整鈴鐺並點擊「我覺得均等了」，完成間距規律選擇題後方可開啟「下一幕」。</p>`;
+    else if(state.act === 4) lockTip = `<p class="tip no" style="margin-top:8px">🔒 請完成填空題與概念題並確認全對後，方可開啟「下一幕」。</p>`;
+    else if(state.act === 5) lockTip = `<p class="tip no" style="margin-top:8px">🔒 請分別切換 5° 與 10° 放球，並答對觀察題與結論題後，方可開啟「下一幕」。</p>`;
+    else if(state.act === 6) lockTip = `<p class="tip no" style="margin-top:8px">🔒 請在延伸挑戰輸入正確答案並點擊「檢查」答對後，方可進入第 7 幕「學習收穫」。</p>`;
+    else if(state.act === 7) lockTip = `<p class="tip no" style="margin-top:8px">🔒 請寫下「我的發現」與「我的心得感想」後，方可解鎖第 8 幕「完全自由探究」。</p>`;
+  }
+
+  let h = `<div class="dots">${ACTS.map((x,i)=>{
+    const locked = !canJumpTo(i);
+    return `<button data-act="${i}" class="${i===state.act?'cur':''}" ${locked?'style="opacity:0.5;cursor:not-allowed"':''}>${i}</button>`;
+  }).join('')}</div>`;
+  h += `<h2>${a.title}</h2>${a.html()}`;
+  h += `<div class="nav">
+    <button id="prev" ${state.act===0?'disabled':''}>◀ 上一幕</button>
+    <button id="next" ${(state.act===ACTS.length-1 || !canNext)?'disabled':''}>下一幕 ▶</button>
+  </div>${lockTip}`;
+  $('guide').innerHTML = h;
+
+  document.querySelectorAll('.dots button').forEach(b=>{
+    b.onclick=()=>{
+      const target = +b.dataset.act;
+      if(canJumpTo(target)) gotoAct(target);
+    };
+  });
+  $('prev').onclick=()=>gotoAct(state.act-1);
+  $('next').onclick=()=>{
+    if(canAdvanceAct(state.act)) gotoAct(state.act+1);
+  };
+
+  // 第 1 幕作答事件
+  if(state.act === 1){
+    document.querySelectorAll('.quiz-opt').forEach(btn=>{
+      btn.onclick=()=>{
+        const opt = btn.dataset.opt;
+        state.act1SelectedOpt = opt;
+        state.history.act1Attempts.push(opt);
+        if(opt === 'B'){
+          state.act1QuizDone = true;
+          playQuizSound(true);
+        } else {
+          state.act1QuizDone = false;
+          playQuizSound(false);
+        }
+        save();
+        renderGuide();
+      };
+    });
+  }
+
+  // 第 2 幕表格輸入與檢查事件
+  document.querySelectorAll('.tin').forEach(inp=>{
+    inp.oninput=()=>{
+      state.table[+inp.dataset.i]=inp.value;
+      state.tableOK=false;
+      state.tableResMsg='';
+      const tr = $('table-res');
+      if(tr) tr.innerHTML = '';
+      const nextBtn = $('next');
+      if(nextBtn) nextBtn.disabled = !canAdvanceAct(state.act);
+      save();
+    };
+  });
+  const ct=$('chk-table');
+  if(ct) ct.onclick=()=>{
+    const ans=[0.5, 2, 4.5, 8];
+    const wrongCells=[];
+    state.history.act2Attempts.push([...state.table]);
+    const res = state.table.map((v,i)=>{
+      const num = parseFloat(v);
+      const isRight = !isNaN(num) && Math.abs(num - ans[i]) < 1e-6;
+      if(!isRight) wrongCells.push(i+1);
+      return isRight;
+    });
+    state.tableOK = res.every(Boolean);
+    if(state.tableOK){
+      state.tableResMsg = '<span class="ok">🎉 恭喜完全正確！到第 3 幕去擺看看。</span>';
+      playQuizSound(true);
+    } else {
+      const cellText = wrongCells.map(idx => `第 ${idx} 格`).join('、');
+      state.tableResMsg = `<span class="no">❌ ${cellText} 要再修正喔！</span>`;
+      playQuizSound(false);
+    }
+    save();
+    renderGuide();
+  };
+
+  // 第 3 幕鈴鐺檢查與間距選擇題事件
+  const ce=$('chk-even');
+  if(ce) ce.onclick=()=>{
+    state.revealed=true; state.solved=isEven();
+    state.history.act3CheckedCount++;
+    if(state.solved){
+      state.history.act3FinalBells = [...state.bells];
+      state.history.act3Intervals = intervals();
+    }
+    save();
+    renderGuide();
+    renderTapes(); drawGaps();
+    if(state.solved) celebrate();
+  };
+
+  if(state.act === 3){
+    document.querySelectorAll('.act3-quiz-opt').forEach(btn=>{
+      btn.onclick=()=>{
+        const opt = btn.dataset.opt;
+        state.act3SelectedOpt = opt;
+        state.history.act3QuizAttempts.push(opt);
+        if(opt === 'C'){
+          state.act3QuizDone = true;
+          playQuizSound(true);
+        } else {
+          state.act3QuizDone = false;
+          playQuizSound(false);
+        }
+        save();
+        renderGuide();
+      };
+    });
+  }
+
+  // 第 4 幕填空題與概念選擇題事件
+  const a4In = $('act4-in');
+  if(a4In){
+    a4In.oninput = () => {
+      state.act4Ans = a4In.value;
+      state.act4QuizDone = false;
+      state.act4FbMsg = '';
+      const fb = $('act4-fb');
+      if(fb) fb.innerHTML = '';
+      const nextBtn = $('next');
+      if(nextBtn) nextBtn.disabled = !canAdvanceAct(state.act);
+      save();
+    };
+  }
+  const chkA4 = $('chk-act4');
+  if(chkA4){
+    chkA4.onclick = () => {
+      const v = (state.act4Ans || '').trim();
+      state.history.act4Attempts.push(v);
+      const num = parseFloat(v);
+      if(num === 2 || v === '2' || v === '2格' || v === '兩' || v === '兩格'){
+        state.act4QuizDone = true;
+        state.act4FbMsg = '<span class="ok">🎉 答對了！每經過一個單位時間都固定「多走 2 格」。</span>';
+        playQuizSound(true);
+      } else {
+        state.act4QuizDone = false;
+        state.act4FbMsg = '<span class="no">❌ 再算算看：3 減 1 是多少？5 減 3 是多少？</span>';
+        playQuizSound(false);
+      }
+      save();
+      renderGuide();
+    };
+  }
+
+  if(state.act === 4){
+    document.querySelectorAll('.act4-choice-opt').forEach(btn=>{
+      btn.onclick=()=>{
+        const opt = btn.dataset.opt;
+        state.act4ChoiceSelected = opt;
+        state.history.act4ChoiceAttempts.push(opt);
+        if(opt === 'A'){
+          state.act4ChoiceDone = true;
+          playQuizSound(true);
+        } else {
+          state.act4ChoiceDone = false;
+          playQuizSound(false);
+        }
+        save();
+        renderGuide();
+      };
+    });
+  }
+
+  // 第 5 幕角度切換與雙題作答事件
+  const t10=$('to10'); if(t10) t10.onclick=()=>setAngle(10);
+  const t5=$('to5'); if(t5) t5.onclick=()=>setAngle(5);
+
+  if(state.act === 5){
+    document.querySelectorAll('.act5-q1-opt').forEach(btn=>{
+      btn.onclick=()=>{
+        const opt = btn.dataset.opt;
+        state.act5Q1Selected = opt;
+        state.history.act5Q1Attempts.push(opt);
+        if(opt === 'C'){
+          state.act5Q1Done = true;
+          playQuizSound(true);
+        } else {
+          state.act5Q1Done = false;
+          playQuizSound(false);
+        }
+        save();
+        renderGuide();
+      };
+    });
+
+    document.querySelectorAll('.act5-q2-opt').forEach(btn=>{
+      btn.onclick=()=>{
+        const opt = btn.dataset.opt;
+        state.act5Q2Selected = opt;
+        state.history.act5Q2Attempts.push(opt);
+        if(opt === 'B'){
+          state.act5Q2Done = true;
+          playQuizSound(true);
+        } else {
+          state.act5Q2Done = false;
+          playQuizSound(false);
+        }
+        save();
+        renderGuide();
+      };
+    });
+  }
+
+  // 第 6 幕延伸挑戰事件
+  const ex=$('ext');
+  if(ex){
+    ex.oninput=()=>{
+      state.ext=ex.value;
+      state.extOK=false;
+      state.extFbMsg='';
+      const er=$('ext-res');
+      if(er) er.innerHTML = '';
+      const nextBtn = $('next');
+      if(nextBtn) nextBtn.disabled = !canAdvanceAct(state.act);
+      save();
+    };
+  }
+  const cx=$('chk-ext');
+  if(cx){
+    cx.onclick=()=>{
+      const v=parseFloat($('ext').value);
+      state.history.act6Attempts.push($('ext').value);
+      state.extOK = !isNaN(v) && Math.abs(v-12.5)<1e-6;
+      if(state.extOK){
+        state.extFbMsg = '<span class="ok">🎉 正確！12.5 m。25 × 0.5 ＝ 12.5，也等於 8 + 9 × 0.5。</span>';
+        playQuizSound(true);
+      } else {
+        state.extFbMsg = '<span class="no">❌ 再想想：1 : 4 : 9 : 16 的下一個是多少？</span>';
+        playQuizSound(false);
+      }
+      save();
+      renderGuide();
+    };
+  }
+
+  // 第 7 幕事件監聽
+  if(state.act === 7){
+    const dIn = $('ref-discovery');
+    const tIn = $('ref-thoughts');
+    if(dIn){
+      dIn.oninput = ()=>{
+        state.reflection.discovery = dIn.value;
+        const nextBtn = $('next');
+        if(nextBtn) nextBtn.disabled = !canAdvanceAct(state.act);
+      };
+    }
+    if(tIn){
+      tIn.oninput = ()=>{
+        state.reflection.thoughts = tIn.value;
+        const nextBtn = $('next');
+        if(nextBtn) nextBtn.disabled = !canAdvanceAct(state.act);
+      };
+    }
+    const btnOpenReport = $('btn-open-report');
+    if(btnOpenReport){
+      btnOpenReport.onclick = ()=>{
+        $('std-class').value = state.studentInfo.className || '';
+        $('std-seat').value = state.studentInfo.seatNumber || '';
+        $('std-name').value = state.studentInfo.name || '';
+        $('std-form-msg').textContent = '';
+        $('student-modal').style.display = 'flex';
+      };
+    }
+  }
+}
+
+function gotoAct(i){
+  if(i<0||i>=ACTS.length) return;
+  state.act=i;
+  if(isBellLocked()){
+    state.bells = [...DEFAULT];
+    state.selected = null;
+  }
+  save(); redraw(); renderGuide(); drawGaps();
+  if(window.innerWidth<980) $('guide').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function celebrate(){
+  const fx=$('fx'); fx.innerHTML='';
+  state.bells.forEach((s,i)=>{
+    const Q=P(s,60);
+    [0,1,2].forEach(k=>{
+      const t=document.createElementNS('http://www.w3.org/2000/svg','text');
+      t.setAttribute('class','note'); t.setAttribute('x',Q.x-14+k*14); t.setAttribute('y',Q.y-k*6);
+      t.setAttribute('style',`animation-delay:${(i*0.12+k*0.15).toFixed(2)}s;fill:${BELLS[i].color}`);
+      t.textContent=['♪','♫','♩'][k]; fx.appendChild(t);
+    });
+  });
+  setTimeout(()=>fx.innerHTML='',3200);
+}
+
+function setAngle(a){
+  if(running) return;
+  state.angle=a; save(); redraw(); renderGuide();
+}
+document.querySelectorAll('.ang').forEach(b=>b.onclick=()=>setAngle(+b.dataset.angle));
+$('go').onclick=run;
+$('reset').onclick=()=>{
+  if(running) return;
+  state.bells=[...DEFAULT]; state.selected=null; state.revealed=false; state.solved=false; state.tapes={};
+  save(); redraw(); renderGuide();
+};
+$('restore').onclick=()=>{
+  if(running) return;
+  try{ localStorage.removeItem(KEY); }catch(e){}
+  state = getInitialState();
+  metro = false;
+  const metroEl = $('metro');
+  if(metroEl) metroEl.checked = false;
+  $('fx').innerHTML = '';
+  save();
+  redraw();
+  renderGuide();
+};
+$('metro').onchange=e=>metro=e.target.checked;
+
+function generateReportHTML(){
+  const now = new Date().toLocaleString('zh-TW', {hour12: false});
+  const info = state.studentInfo;
+  const ivStr = state.history.act3Intervals.length
+    ? state.history.act3Intervals.map(fmt).join(' s, ') + ' s'
+    : '尚無或未記錄';
+  const bellsStr = state.history.act3FinalBells
+    ? state.history.act3FinalBells.map(b=>b.toFixed(1)).join(' m, ') + ' m'
+    : state.bells.map(b=>b.toFixed(1)).join(' m, ') + ' m';
+
+  // 格式化第 1 幕選擇題歷程 (正解為 B)
+  const act1Hist = state.history.act1Attempts;
+  const act1Wrong = act1Hist.filter(opt => opt !== 'B');
+  let act1RecordText = `最終作答：${state.act1SelectedOpt || '未選'}`;
+  if(act1Wrong.length > 0){
+    act1RecordText += `<br><span style="color:#a63d1e;font-size:0.85rem">⚠️ 曾嘗試錯誤選項：${act1Wrong.join('、')}（共答錯 ${act1Wrong.length} 次）</span>`;
+  } else if(state.act1QuizDone){
+    act1RecordText += `<br><span style="color:#274e13;font-size:0.85rem">✨ 一次答對</span>`;
+  }
+
+  // 格式化第 2 幕表格預測歷程
+  const act2Hist = state.history.act2Attempts;
+  let act2RecordText = `最終預測：${state.table.map(v=>v||'__').join(' m, ')} m`;
+  if(act2Hist.length > 1){
+    const wrongCount = act2Hist.length - (state.tableOK ? 1 : 0);
+    act2RecordText += `<br><span style="color:#a63d1e;font-size:0.85rem">⚠️ 累計檢查 ${act2Hist.length} 次（未全對次數：${wrongCount} 次）</span>`;
+    const pastWrong = act2Hist.slice(0, wrongCount).map((arr, idx)=>`第${idx+1}次:[${arr.map(x=>x||'_').join(',')}]`).join('；');
+    if(pastWrong) act2RecordText += `<br><span style="color:#7a6a5c;font-size:0.8rem">歷史輸入：${pastWrong}</span>`;
+  } else if(state.tableOK){
+    act2RecordText += `<br><span style="color:#274e13;font-size:0.85rem">✨ 一次檢查即全對</span>`;
+  }
+
+  // 格式化第 3 幕鈴鐺調整歷程與選擇題作答 (正解為 C)
+  let act3RecordText = `擺放位置：${bellsStr}<br>聲音間隔：${ivStr}`;
+  if(state.history.act3CheckedCount > 0){
+    act3RecordText += `<br><span style="font-size:0.85rem;color:${state.history.act3CheckedCount>1?'#a63d1e':'#274e13'}">🔔 共點擊檢查 ${state.history.act3CheckedCount} 次${state.history.act3CheckedCount>1 ? `（經歷 ${state.history.act3CheckedCount - (state.solved?1:0)} 次調整）` : '（一次達成）'}</span>`;
+  }
+  const act3QuizHist = state.history.act3QuizAttempts;
+  const act3QuizWrong = act3QuizHist.filter(opt => opt !== 'C');
+  act3RecordText += `<br>間距規律題作答：${state.act3SelectedOpt || '未選'}`;
+  if(act3QuizWrong.length > 0){
+    act3RecordText += `<br><span style="color:#a63d1e;font-size:0.85rem">⚠️ 間距題曾選錯：${act3QuizWrong.join('、')}（共選錯 ${act3QuizWrong.length} 次）</span>`;
+  } else if(state.act3QuizDone){
+    act3RecordText += `<br><span style="color:#274e13;font-size:0.85rem">✨ 間距規律題一次答對（1:3:5:7）</span>`;
+  }
+
+  // 格式化第 4 幕奇數定律填空歷程與選擇題作答 (正解為 A)
+  const act4Hist = state.history.act4Attempts;
+  const isAct4AnsCorrect = v => {
+    const s = String(v||'').trim();
+    return parseFloat(s) === 2 || s === '2' || s === '2格' || s === '兩' || s === '兩格';
+  };
+  const act4Wrong = act4Hist.filter(v => !isAct4AnsCorrect(v));
+  let act4RecordText = `填空作答：多走【${state.act4Ans || '無'}】格`;
+  if(act4Wrong.length > 0){
+    act4RecordText += `<br><span style="color:#a63d1e;font-size:0.85rem">⚠️ 填空曾填錯：${act4Wrong.map(w=>`"${w}"`).join('、')}（共答錯 ${act4Wrong.length} 次）</span>`;
+  } else if(state.act4QuizDone){
+    act4RecordText += `<br><span style="color:#274e13;font-size:0.85rem">✨ 填空一次答對</span>`;
+  }
+
+  const act4ChoiceHist = state.history.act4ChoiceAttempts;
+  const act4ChoiceWrong = act4ChoiceHist.filter(opt => opt !== 'A');
+  act4RecordText += `<br>運動性質題作答：${state.act4ChoiceSelected || '未選'}`;
+  if(act4ChoiceWrong.length > 0){
+    act4RecordText += `<br><span style="color:#a63d1e;font-size:0.85rem">⚠️ 運動性質題曾選錯：${act4ChoiceWrong.join('、')}（共選錯 ${act4ChoiceWrong.length} 次）</span>`;
+  } else if(state.act4ChoiceDone){
+    act4RecordText += `<br><span style="color:#274e13;font-size:0.85rem">✨ 運動性質題一次答對（理解為等加速度運動）</span>`;
+  }
+
+  // 格式化第 5 幕雙斜角探究之「觀察題」與「結論題」歷程 (觀察題正解 C，結論題正解 B)
+  const act5Q1Hist = state.history.act5Q1Attempts;
+  const act5Q1Wrong = act5Q1Hist.filter(opt => opt !== 'C');
+  let act5RecordText = `雙角度測試：${(state.tapes[5] && state.tapes[10]) ? '5° 與 10° 皆已測試' : '尚未完整測試'}`;
+  act5RecordText += `<br>觀察題作答：${state.act5Q1Selected || '未選'}`;
+  if(act5Q1Wrong.length > 0){
+    act5RecordText += `<br><span style="color:#a63d1e;font-size:0.85rem">⚠️ 觀察題曾選錯：${act5Q1Wrong.join('、')}（共答錯 ${act5Q1Wrong.length} 次）</span>`;
+  } else if(state.act5Q1Done){
+    act5RecordText += `<br><span style="color:#274e13;font-size:0.85rem">✨ 觀察題一次答對（刻痕變密但依然均等）</span>`;
+  }
+
+  const act5Q2Hist = state.history.act5Q2Attempts;
+  const act5Q2Wrong = act5Q2Hist.filter(opt => opt !== 'B');
+  act5RecordText += `<br>結論題作答：${state.act5Q2Selected || '未選'}`;
+  if(act5Q2Wrong.length > 0){
+    act5RecordText += `<br><span style="color:#a63d1e;font-size:0.85rem">⚠️ 結論題曾選錯：${act5Q2Wrong.join('、')}（共答錯 ${act5Q2Wrong.length} 次）</span>`;
+  } else if(state.act5Q2Done){
+    act5RecordText += `<br><span style="color:#274e13;font-size:0.85rem">✨ 結論題一次答對（加速度改變但物理規律不變）</span>`;
+  }
+
+  // 格式化第 6 幕延伸挑戰歷程
+  const act6Hist = state.history.act6Attempts;
+  const isAct6Correct = v => {
+    const n = parseFloat(v);
+    return !isNaN(n) && Math.abs(n - 12.5) < 1e-6;
+  };
+  const act6Wrong = act6Hist.filter(v => !isAct6Correct(v));
+  let act6RecordText = `第五顆鈴鐺預測：【${state.ext || '未填'}】 m`;
+  if(act6Wrong.length > 0){
+    act6RecordText += `<br><span style="color:#a63d1e;font-size:0.85rem">⚠️ 曾猜測錯誤數值：${act6Wrong.map(w=>`"${w}"`).join('、')}（共答錯 ${act6Wrong.length} 次）</span>`;
+  } else if(state.extOK){
+    act6RecordText += `<br><span style="color:#274e13;font-size:0.85rem">✨ 一次答對（12.5 m）</span>`;
+  }
+
+  return `
+    <div class="report-header">
+      <h2>伽利略的鈴鐺斜面實驗 — 探究學習歷程報告</h2>
+      <p style="margin:2px 0 0;font-size:0.95rem;color:#7a6a5c">聆聽科學的旋律，找出數學的規律</p>
+    </div>
+
+    <div class="report-meta">
+      <div>班級：<span>${info.className}</span></div>
+      <div>座號：<span>${info.seatNumber}</span> 號</div>
+      <div>姓名：<span>${info.name}</span></div>
+      <div>報告時間：<span>${now}</span></div>
+    </div>
+
+    <div class="report-sec">
+      <h3>一、 各階段歷程與探究檢核狀況</h3>
+      <table class="report-tbl">
+        <tr>
+          <th style="width:26%">學習階段</th>
+          <th style="width:50%">學生作答與歷史嘗試紀錄</th>
+          <th style="width:24%;text-align:center">檢核結果</th>
+        </tr>
+        <tr>
+          <td><b>第 0 幕｜回顧</b></td>
+          <td>放球試聽伽利略銅球滾動節奏（累計放球次數：${state.history.playCount} 次）</td>
+          <td style="text-align:center"><span class="badge badge-ok">已完成試聽</span></td>
+        </tr>
+        <tr>
+          <td><b>第 1 幕｜先聽再說</b></td>
+          <td>${act1RecordText}</td>
+          <td style="text-align:center">${state.act1QuizDone ? '<span class="badge badge-ok">答對通關</span>' : '<span class="badge badge-no">尚未通過</span>'}</td>
+        </tr>
+        <tr>
+          <td><b>第 2 幕｜動腦預測</b></td>
+          <td>${act2RecordText}</td>
+          <td style="text-align:center">${state.tableOK ? '<span class="badge badge-ok">完全正確 (0.5, 2, 4.5, 8)</span>' : '<span class="badge badge-no">未完成</span>'}</td>
+        </tr>
+        <tr>
+          <td><b>第 3 幕｜動手擺鈴鐺</b></td>
+          <td>${act3RecordText}</td>
+          <td style="text-align:center">${(state.solved && state.act3QuizDone) ? '<span class="badge badge-ok">節奏均等且答對</span>' : '<span class="badge badge-no">未完成</span>'}</td>
+        </tr>
+        <tr>
+          <td><b>第 4 幕｜發現奇數定律</b></td>
+          <td>${act4RecordText}</td>
+          <td style="text-align:center">${(state.act4QuizDone && state.act4ChoiceDone) ? '<span class="badge badge-ok">雙題皆答對</span>' : '<span class="badge badge-no">未完成</span>'}</td>
+        </tr>
+        <tr>
+          <td><b>第 5 幕｜角度比較</b></td>
+          <td>${act5RecordText}</td>
+          <td style="text-align:center">${(state.tapes[5] && state.tapes[10] && state.act5Q1Done && state.act5Q2Done) ? '<span class="badge badge-ok">雙題皆答對</span>' : '<span class="badge badge-no">未完成</span>'}</td>
+        </tr>
+        <tr>
+          <td><b>第 6 幕｜延伸挑戰</b></td>
+          <td>${act6RecordText}</td>
+          <td style="text-align:center">${state.extOK ? '<span class="badge badge-ok">正確 (12.5 m)</span>' : '<span class="badge badge-no">未完成</span>'}</td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="report-sec">
+      <h3>二、 我的科學發現</h3>
+      <div class="report-box" style="white-space:pre-wrap;">${(state.reflection.discovery || '').trim() || '（學生未填寫內容）'}</div>
+    </div>
+
+    <div class="report-sec">
+      <h3>三、 我的心得感想</h3>
+      <div class="report-box" style="white-space:pre-wrap;">${(state.reflection.thoughts || '').trim() || '（學生未填寫內容）'}</div>
+    </div>
+
+    <div style="margin-top:14px;border-top:1px dashed #c8bba9;padding-top:6px;display:flex;justify-content:space-between;font-size:0.85rem;color:#7a6a5c">
+      <span>實驗系統：伽利略的鈴鐺斜面實驗 v3.5</span>
+    </div>
+  `;
+}
+
+function showReportPreview(){
+  const paper = $('report-paper');
+  paper.innerHTML = generateReportHTML();
+  $('preview-modal').style.display = 'flex';
+}
+
+$('btn-close-std-modal').onclick = ()=>{ $('student-modal').style.display = 'none'; };
+$('btn-cancel-student').onclick = ()=>{ $('student-modal').style.display = 'none'; };
+
+$('btn-confirm-student').onclick = ()=>{
+  const c = $('std-class').value.trim();
+  const s = $('std-seat').value.trim();
+  const n = $('std-name').value.trim();
+  if(!c || !s || !n){
+    $('std-form-msg').textContent = '⚠️ 請完整填寫班級、座號與姓名，才能產生專屬報告喔！';
+    return;
+  }
+  state.studentInfo.className = c;
+  state.studentInfo.seatNumber = s;
+  state.studentInfo.name = n;
+  $('student-modal').style.display = 'none';
+  showReportPreview();
+};
+
+$('btn-close-preview-modal').onclick = ()=>{ $('preview-modal').style.display = 'none'; };
+$('btn-back-edit').onclick = ()=>{ $('preview-modal').style.display = 'none'; };
+$('btn-back-main').onclick = ()=>{ $('preview-modal').style.display = 'none'; };
+
+$('btn-download-pdf').onclick = async ()=>{
+  const info = state.studentInfo;
+  const fileName = `伽利略的斜面實驗+${info.className}_${info.seatNumber}號_${info.name}.pdf`;
+  const originalPaper = $('report-paper');
+  const statusMsg = $('pdf-status-msg');
+
+  const btn = $('btn-download-pdf');
+  const originText = btn.textContent;
+  btn.textContent = '⏳ PDF 繪製中...';
+  btn.disabled = true;
+  if(statusMsg) statusMsg.textContent = '正在為您組裝完整無損報告...';
+
+  // 建立獨立純白舞台容器，避免被彈窗捲軸截斷
+  const renderContainer = document.createElement('div');
+  renderContainer.id = 'pdf-render-stage';
+  renderContainer.style.position = 'fixed';
+  renderContainer.style.top = '0';
+  renderContainer.style.left = '0';
+  renderContainer.style.width = '780px';
+  renderContainer.style.background = '#ffffff';
+  renderContainer.style.zIndex = '99999';
+  renderContainer.style.padding = '24px 30px';
+  renderContainer.style.boxSizing = 'border-box';
+  renderContainer.style.overflow = 'visible';
+
+  const clone = originalPaper.cloneNode(true);
+  clone.style.border = 'none';
+  clone.style.margin = '0';
+  clone.style.padding = '0';
+  clone.style.maxHeight = 'none';
+  clone.style.height = 'auto';
+  clone.style.overflow = 'visible';
+  clone.style.boxShadow = 'none';
+  renderContainer.appendChild(clone);
+  document.body.appendChild(renderContainer);
+
+  try {
+    const jsPDFConstructor = window.jsPDF || (window.jspdf && window.jspdf.jsPDF);
+    if(typeof html2canvas !== 'undefined' && jsPDFConstructor){
+      const canvas = await html2canvas(renderContainer, {
+        scale: 2,
+        useCORS: true,
+        letterRendering: true,
+        backgroundColor: '#ffffff',
+        scrollX: 0,
+        scrollY: 0,
+        windowWidth: 1024,
+        logging: false
+      });
+
+      const imgData = canvas.toDataURL('image/jpeg', 0.98);
+      const pdf = new jsPDFConstructor('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const margin = 10;
+      const contentWidth = pdfWidth - margin * 2;
+      const contentHeight = (canvas.height * contentWidth) / canvas.width;
+
+      let heightLeft = contentHeight;
+      let position = margin;
+
+      pdf.addImage(imgData, 'JPEG', margin, position, contentWidth, contentHeight);
+      heightLeft -= (pdfHeight - margin * 2);
+
+      while(heightLeft > 4){
+        position = margin - (contentHeight - heightLeft);
+        pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', margin, position, contentWidth, contentHeight);
+        heightLeft -= (pdfHeight - margin * 2);
+      }
+
+      pdf.save(fileName);
+      if(statusMsg) statusMsg.textContent = '✅ 下載成功！即將回到實驗主畫面...';
+      setTimeout(()=>{
+        $('preview-modal').style.display = 'none';
+        if(statusMsg) statusMsg.textContent = '';
+      }, 1200);
+    } else if(typeof html2pdf !== 'undefined') {
+      const opt = {
+        margin: [10, 10, 10, 10],
+        filename: fileName,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, letterRendering: true, scrollY: 0, scrollX: 0, backgroundColor: '#ffffff' },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak: { mode: ['css', 'legacy'] }
+      };
+      await html2pdf().set(opt).from(renderContainer).save();
+      if(statusMsg) statusMsg.textContent = '✅ 下載成功！即將回到實驗主畫面...';
+      setTimeout(()=>{
+        $('preview-modal').style.display = 'none';
+        if(statusMsg) statusMsg.textContent = '';
+      }, 1200);
+    }
+  } catch(err) {
+    console.error('PDF 生成失敗:', err);
+    if(statusMsg) statusMsg.textContent = '⚠️️ 下載遇到狀況，請再試一次。';
+  } finally {
+    if(document.body.contains(renderContainer)) document.body.removeChild(renderContainer);
+    btn.textContent = originText;
+    btn.disabled = false;
+  }
+};
+
+redraw(); renderGuide();
+</script>
+</body>
+</html>
