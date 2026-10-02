@@ -358,7 +358,7 @@ table.show-w2 .w2{display:table-cell}
 
 <!-- 簽名檔 -->
 <div style="text-align: right; margin-top: 40px; padding-bottom: 20px; font-size: 0.9em; color: #666;">
-  by Jay`s Lab 紅樓老頭子 系統版本：v1.6
+  by Jay`s Lab 紅樓老頭子 系統版本：v1.8
 </div>
 
 <script>
@@ -1069,12 +1069,53 @@ $('btnConfirmDownloadPdf').addEventListener('click', () => {
     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
   };
 
+  // 提示處理中，避免使用者重複連點
+  const btn = $('btnConfirmDownloadPdf');
+  const originalText = btn.innerHTML;
+  btn.innerHTML = '⏳ 處理中...';
+  btn.disabled = true;
+
   if (window.html2pdf) {
-    html2pdf().set(opt).from(element).save().then(() => {
-      $('previewModal').hidden = true;
-      alert(`🎉 恭喜！學習報告已成功下載：\n${fileName}`);
+    // 改用 outputPdf('blob') 先把 PDF 轉換為內存檔案，而不是直接觸發傳統下載
+    html2pdf().set(opt).from(element).outputPdf('blob').then((pdfBlob) => {
+      btn.innerHTML = originalText;
+      btn.disabled = false;
+      
+      const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
+      
+      // 判斷是否為行動裝置或平板 (包含 iPadOS 13+ 會偽裝成 Mac，需用 maxTouchPoints 判斷)
+      const isMobileOrTablet = /iPad|iPhone|iPod|Android/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+      if (isMobileOrTablet && navigator.canShare && navigator.canShare({ files: [file] })) {
+        // 行動裝置/平板 (iPad)：使用原生分享機制
+        navigator.share({
+          files: [file],
+          title: fileName
+        }).then(() => {
+          $('previewModal').hidden = true;
+        }).catch(err => {
+          console.log('使用者取消或分享失敗', err);
+        });
+      } else {
+        // 桌機：自動下載
+        const url = URL.createObjectURL(pdfBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        
+        setTimeout(() => {
+          a.remove();
+          URL.revokeObjectURL(url);
+          $('previewModal').hidden = true;
+          alert(`🎉 恭喜！學習報告已成功下載：\n${fileName}`);
+        }, 100);
+      }
     }).catch(err => {
       console.error(err);
+      btn.innerHTML = originalText;
+      btn.disabled = false;
       alert('生成 PDF 時發生小問題，正在為您切換至瀏覽器列印視窗。');
       window.print();
     });
@@ -1218,7 +1259,7 @@ function generateFullReportHtml(cls, seat, name) {
     </div>
 
     <div style="text-align:right;font-size:11px;color:#888;margin-top:16px;border-top:1px dashed #C9A06A;padding-top:6px;">
-      系統認證簽章：by Jay\`s Lab 紅樓老頭子 系統版本：v1.6
+      系統認證簽章：by Jay\`s Lab 紅樓老頭子 系統版本：v1.8
     </div>
   `;
 }

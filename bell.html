@@ -264,7 +264,7 @@ input.num{width:90px;font-family:inherit;font-size:1rem;border:1.5px solid var(-
   </div>
 </div>
 
-<div id="site-footer" style="text-align: right; margin-top: 40px; padding-bottom: 20px; font-size: 0.9em; color: #666; padding-right: 20px;">by Jay`s Lab 紅樓老頭子 系統版本：v3.5</div>
+<div id="site-footer" style="text-align: right; margin-top: 40px; padding-bottom: 20px; font-size: 0.9em; color: #666; padding-right: 20px;">by Jay`s Lab 紅樓老頭子 系統版本：v3.6</div>
 
 <script>
 const G = 9.8, LEN = 8, TMAX = 5.8;
@@ -530,6 +530,7 @@ svg.addEventListener('pointerup', endDrag); svg.addEventListener('pointercancel'
 
 let selMsgTimer=null;
 function flashSel(msg){ const el=$('sel'); el.dataset.msg=msg; renderSel(); clearTimeout(selMsgTimer); selMsgTimer=setTimeout(()=>{delete el.dataset.msg; renderSel();},2200); }
+
 function renderSel(){
   const el = $('sel');
   if(isBellLocked()){
@@ -821,7 +822,7 @@ const ACTS = [
   if(!state.solved){
     h += `<p class="no">請你務必先在第 3 幕把鈴鐺位置擺對再來看這一幕。</p>`;
   }
-  h += `<p>請你看看斜面上標出的<b>「相鄰兩個鈴鐺」的間距</b>。如果你擺對的話(相鄰兩鈴鐺聲音的時間間格相同)，「每個鈴鐺聲」所走的距離會是 0.5、1.5、2.5、3.5 m。如果用 0.5 m 當成一格，相鄰兩鈴鐺的間距就是 <b>1、3、5、7</b> 格，它們是連續的奇數耶！</p>`;
+  h += `<p>請你看看斜面上標出的<b>「相鄰兩個鈴鐺」的間距</b>。如果你擺對的話(相鄰兩鈴鐺聲音的時間間格相同)，「每個鈴鐺聲」所走的距離會是 0.5、1.5、2.5、3.5 m。如果用 0.5 m 當成一格，相鄰兩鈴鐺的間距幾是 <b>1、3、5、7</b> 格，它們是連續的奇數耶！</p>`;
 
   h += `<div class="quiz-box" style="margin:12px 0">
     <h4 style="margin:0 0 6px;color:var(--ochre)">💡 動動腦填空題</h4>
@@ -1533,7 +1534,7 @@ function generateReportHTML(){
     </div>
 
     <div style="margin-top:14px;border-top:1px dashed #c8bba9;padding-top:6px;display:flex;justify-content:space-between;font-size:0.85rem;color:#7a6a5c">
-      <span>實驗系統：伽利略的鈴鐺斜面實驗 v3.5</span>
+      <span>實驗系統：伽利略的鈴鐺斜面實驗 v3.6</span>
     </div>
   `;
 }
@@ -1604,6 +1605,9 @@ $('btn-download-pdf').onclick = async ()=>{
 
   try {
     const jsPDFConstructor = window.jsPDF || (window.jspdf && window.jspdf.jsPDF);
+    let pdfBlob = null; // 用來儲存產生的 PDF 內容 (Blob)
+
+    // 首先嘗試使用 html2canvas + jsPDF 高畫質渲染
     if(typeof html2canvas !== 'undefined' && jsPDFConstructor){
       const canvas = await html2canvas(renderContainer, {
         scale: 2,
@@ -1636,14 +1640,12 @@ $('btn-download-pdf').onclick = async ()=>{
         pdf.addImage(imgData, 'JPEG', margin, position, contentWidth, contentHeight);
         heightLeft -= (pdfHeight - margin * 2);
       }
+      
+      // 將 jsPDF 產出的文件轉為 Blob
+      pdfBlob = pdf.output('blob');
 
-      pdf.save(fileName);
-      if(statusMsg) statusMsg.textContent = '✅ 下載成功！即將回到實驗主畫面...';
-      setTimeout(()=>{
-        $('preview-modal').style.display = 'none';
-        if(statusMsg) statusMsg.textContent = '';
-      }, 1200);
     } else if(typeof html2pdf !== 'undefined') {
+       // 如果沒有 html2canvas，退回使用 html2pdf
       const opt = {
         margin: [10, 10, 10, 10],
         filename: fileName,
@@ -1652,22 +1654,73 @@ $('btn-download-pdf').onclick = async ()=>{
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
         pagebreak: { mode: ['css', 'legacy'] }
       };
-      await html2pdf().set(opt).from(renderContainer).save();
-      if(statusMsg) statusMsg.textContent = '✅ 下載成功！即將回到實驗主畫面...';
+      
+      // html2pdf 可以設定輸出類型為 blob
+      pdfBlob = await html2pdf().set(opt).from(renderContainer).output('blob');
+    }
+
+    if (pdfBlob) {
+      // 偵測是否為行動裝置 (特別是 iPad 或 iPhone)
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.userAgent.includes("Mac") && "ontouchend" in document);
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || isIOS;
+
+      // 將 Blob 轉換為 File 物件，以便分享
+      const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
+
+      // 如果是行動裝置，且瀏覽器支援 Web Share API (含檔案分享)
+      if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
+         if(statusMsg) statusMsg.textContent = '正在為您開啟分享選單...';
+         try {
+            await navigator.share({
+               files: [file],
+               title: '學習歷程報告',
+               text: '這是您的學習歷程報告，請選擇「儲存到檔案」或其他方式分享。'
+            });
+            if(statusMsg) statusMsg.textContent = '✅ 已開啟分享選單！';
+         } catch (shareError) {
+            // 如果使用者取消分享，或者分享失敗，退回直接下載
+            console.log('Share API error or cancelled:', shareError);
+             if(statusMsg) statusMsg.textContent = '取消分享或發生錯誤，改為直接下載...';
+             downloadBlob(pdfBlob, fileName);
+         }
+      } else {
+         // 桌機，或是不支援分享檔案的瀏覽器，維持直接下載
+         if(statusMsg) statusMsg.textContent = '正在下載...';
+         downloadBlob(pdfBlob, fileName);
+         if(statusMsg) statusMsg.textContent = '✅ 下載成功！';
+      }
+
+      // 共通的收尾動作
       setTimeout(()=>{
         $('preview-modal').style.display = 'none';
         if(statusMsg) statusMsg.textContent = '';
-      }, 1200);
+      }, 2500);
+
+    } else {
+        throw new Error("無法產生 PDF Blob");
     }
+
   } catch(err) {
-    console.error('PDF 生成失敗:', err);
-    if(statusMsg) statusMsg.textContent = '⚠️️ 下載遇到狀況，請再試一次。';
+    console.error('PDF 生成或處理失敗:', err);
+    if(statusMsg) statusMsg.textContent = '⚠ 處理遇到狀況，請再試一次。';
   } finally {
     if(document.body.contains(renderContainer)) document.body.removeChild(renderContainer);
     btn.textContent = originText;
     btn.disabled = false;
   }
 };
+
+// 輔助函數：用傳統的建立 <a> 標籤方式下載 Blob
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
 
 redraw(); renderGuide();
 </script>
