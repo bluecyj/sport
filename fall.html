@@ -209,7 +209,7 @@ table.show-w2 .w2{display:table-cell}
         <div class="quiz-feedback" id="quizFeedback"></div>
       </div>
 
-      <!-- 新增：階段 7 學習收穫填寫區 -->
+      <!-- 新增：階段 7 心得填寫區 -->
       <div class="reflection-box" id="reflectionBox">
         <div class="reflect-field">
           <div class="reflect-label">📝 我的發現：</div>
@@ -312,7 +312,7 @@ table.show-w2 .w2{display:table-cell}
   </div>
 </div>
 
-<!-- 新增：學生資料輸入彈窗 -->
+<!-- 學生資料輸入彈窗 -->
 <div class="modal" id="studentModal" hidden>
   <div class="mbox">
     <div class="mbox-title">🎓 生成學習報告（填寫學生資訊）</div>
@@ -335,7 +335,7 @@ table.show-w2 .w2{display:table-cell}
   </div>
 </div>
 
-<!-- 新增：報告全螢幕預覽彈窗 -->
+<!-- 報告全螢幕預覽彈窗 -->
 <div class="preview-modal" id="previewModal" hidden>
   <div class="preview-card">
     <div class="preview-topbar">
@@ -353,12 +353,12 @@ table.show-w2 .w2{display:table-cell}
   </div>
 </div>
 
-<!-- 新增：隱藏的 PDF 渲染容器 -->
+<!-- 隱藏的 PDF 渲染容器 -->
 <div id="pdfReportContent"></div>
 
 <!-- 簽名檔 -->
 <div style="text-align: right; margin-top: 40px; padding-bottom: 20px; font-size: 0.9em; color: #666;">
-  by Jay`s Lab 紅樓老頭子 系統版本：v1.4
+  by Jay`s Lab 紅樓老頭子 系統版本：v1.6
 </div>
 
 <script>
@@ -375,10 +375,11 @@ const PXM=SC.len/7, GY=384;
 const B={x:220,beamY:290,half:52,drop:60};
 const PLACE_MS=650;
 
+// 新增 reportGenerated 狀態
 const state={angle:5,ball:'small',s:0.5,real:false,phase:'idle',t0:0,T:0,wFinal:0,traveled:0,water:0,
   placeT0:0,placeP:0,stopT0:0,weighT0:0,cup:{x:125,yb:GY},tilt:0,weightOn:false,tag:null,
   records:[],mode:'w',trend:false,trendP:0,hl:null,sound:true,nextId:1,
-  step:1, stepAnswered:false,
+  step:1, stepAnswered:false, reportGenerated:false,
   quizLog: {}, // 紀錄學生各階段作答狀況 { step: { question, attempts, passed, selected: [] } }
   discoveryText: '',
   thoughtsText: ''
@@ -447,7 +448,7 @@ const GUIDES = [
     task: "「球滾動的『距離』與『時間²』成正比 (d ∝ t²)」這個規律，在斜面不同的傾角下也會成立嗎？請你先預測一下，若將傾角改為10° ，將銅球以同樣的距離滾下，水重會變多還是變少？<br>👉 實驗條件已解鎖<b>「10°」</b>。請將斜面角度切換為 10°，測量至少 <b>5 筆</b>不同距離數據，觀察橫坐標為「水重²」時，藍色趨勢線的斜率(傾斜程度)。",
     isTaskDone: () => {
       const d = new Set(state.records.filter(r=>r.angle===10 && !r.real).map(r=>r.s));
-      return d.size >= 2 && state.trend;
+      return d.size >= 5 && state.trend;
     },
     taskDoneText: "✔ 已測量 10° 數據並比較兩條斜線！",
     taskPendingText: "⏳ 請將傾角切換為 10° 測量，操作至少 5 筆不同距離的數據，並點擊「畫趨勢線」",
@@ -465,7 +466,7 @@ const GUIDES = [
     step: 5,
     title: "5. 銅球質量的影響：大球 vs 小球",
     task: "古希臘哲學家亞里斯多德認為「越重的物體掉落速度越快」，但17世紀的伽利略對這樣的論述提出質疑，他應該可以如何證明亞里斯多德的想法是錯誤的呢？<br>👉 實驗條件已解鎖銅球大小。請切換為<b>「大球」</b>並測量 5 筆數據，看看關係圖中，大球數據的點落在何處。",
-    isTaskDone: () => state.records.filter(r=>r.ball==='large' && !r.real).length >= 2,
+    isTaskDone: () => state.records.filter(r=>r.ball==='large' && !r.real).length >= 5,
     taskDoneText: "✔ 已完成大球的5筆數據測量！",
     taskPendingText: "⏳ 請切換為「大球」並進行測量",
     quiz: {
@@ -510,10 +511,11 @@ const GUIDES = [
     isTaskDone: () => {
       const d = ($('reflectDiscovery') ? $('reflectDiscovery').value.trim() : state.discoveryText);
       const t = ($('reflectThoughts') ? $('reflectThoughts').value.trim() : state.thoughtsText);
-      return d.length > 0 && t.length > 0;
+      // 新增 state.reportGenerated 條件判斷，確保學生有按下生成按鈕
+      return d.length > 0 && t.length > 0 && state.reportGenerated;
     },
-    taskDoneText: "✔ 已填寫學習收穫！可點擊按鈕匯出 PDF，或進入下一階段自由探索！",
-    taskPendingText: "⏳ 請在下方填寫「我的發現」與「我的心得感想」",
+    taskDoneText: "✔ 已成功產生學習報告！可點擊下方按鈕進入自由探索！",
+    taskPendingText: "⏳ 請填寫「我的發現」與「我的心得感想」，並點擊「一鍵生成學習報告」",
     quiz: null,
     unlocks: { real: true, angle: true, ball: true, mode: true, dist: true }
   },
@@ -1034,6 +1036,10 @@ $('btnDoExportPdf').addEventListener('click', () => {
   // 關閉輸入彈窗
   $('studentModal').hidden = true;
 
+  // ★ 新增邏輯：標記已生成報告，並更新左側指引狀態
+  state.reportGenerated = true;
+  updateGuideStatus();
+
   // 生成完整 1~7 階段詳細報告 HTML 並放入預覽視窗
   const reportHtml = generateFullReportHtml(cls, seat, name);
   $('previewPaperContent').innerHTML = reportHtml;
@@ -1212,7 +1218,7 @@ function generateFullReportHtml(cls, seat, name) {
     </div>
 
     <div style="text-align:right;font-size:11px;color:#888;margin-top:16px;border-top:1px dashed #C9A06A;padding-top:6px;">
-      系統認證簽章：by Jay\`s Lab 紅樓老頭子 系統版本：v1.4
+      系統認證簽章：by Jay\`s Lab 紅樓老頭子 系統版本：v1.6
     </div>
   `;
 }
