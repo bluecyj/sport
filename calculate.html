@@ -36,6 +36,12 @@
 </head>
 <body class="min-h-screen flex flex-col items-center justify-start py-8 px-4 text-slate-800">
 
+<!-- 載入中遮罩 (用於 PDF 產生時) -->
+<div id="loading-overlay" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] hidden flex-col items-center justify-center">
+    <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-teal-400 mb-4"></div>
+    <p class="text-white font-bold text-lg tracking-wider">正在產生 PDF，請稍候...</p>
+</div>
+
 <!-- 主容器 -->
 <div class="bg-white max-w-5xl w-full rounded-2xl shadow-xl overflow-hidden border border-teal-100 mb-8">
     
@@ -80,33 +86,33 @@
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
-        <!-- 控制變因 1: 砝碼質量 -->
-        <label id="label-ctrl-weight" onclick="selectControlVar('weight')" class="flex flex-col items-center justify-center p-6 border-2 rounded-2xl cursor-pointer hover:bg-teal-50 hover:border-teal-400 transition-all border-teal-500 bg-teal-50/70 ring-2 ring-teal-500 text-center shadow-sm">
-            <input type="radio" name="control-variable" value="weight" class="hidden" checked>
-            <div class="text-4xl mb-3">⚖️</div>
-            <span class="text-lg font-bold text-gray-800">砝碼質量 (F) 固定</span>
-            <span class="text-xs text-teal-700 bg-teal-100 px-2.5 py-1 rounded-full mt-2 border border-teal-200 font-semibold">外力固定</span>
-            <p class="text-xs text-gray-500 mt-2">可繪製加速度(a)對滑車質量(M)、滑車質量倒數(1/M)、(滑車+砝碼)質量(m)、(滑車+砝碼)質量倒數(1/m) 四種關係圖</p>
-        </label>
+                <!-- 控制變因 1: 砝碼質量 -->
+                <label id="label-ctrl-weight" onclick="selectControlVar('weight')" class="flex flex-col items-center justify-center p-6 border-2 rounded-2xl cursor-pointer hover:bg-teal-50 hover:border-teal-400 transition-all border-teal-500 bg-teal-50/70 ring-2 ring-teal-500 text-center shadow-sm">
+                    <input type="radio" name="control-variable" value="weight" class="hidden" checked>
+                    <div class="text-4xl mb-3">⚖️</div>
+                    <span class="text-lg font-bold text-gray-800">砝碼質量 (F) 固定</span>
+                    <span class="text-xs text-teal-700 bg-teal-100 px-2.5 py-1 rounded-full mt-2 border border-teal-200 font-semibold">外力固定</span>
+                    <p class="text-xs text-gray-500 mt-2">可繪製加速度(a)對滑車質量(M)、滑車質量倒數(1/M)、(滑車+砝碼)質量(m)、(滑車+砝碼)質量倒數(1/m) 四種關係圖</p>
+                </label>
 
-        <!-- 控制變因 2: 滑車質量 -->
-        <label id="label-ctrl-cart" onclick="selectControlVar('cart')" class="flex flex-col items-center justify-center p-6 border-2 rounded-2xl cursor-pointer hover:bg-teal-50 hover:border-teal-400 transition-all border-gray-200 text-center shadow-sm">
-            <input type="radio" name="control-variable" value="cart" class="hidden">
-            <div class="text-4xl mb-3">🏎️</div>
-            <span class="text-lg font-bold text-gray-800">滑車質量 (M) 固定</span>
-            <span class="text-xs text-teal-700 bg-teal-100 px-2.5 py-1 rounded-full mt-2 border border-teal-200 font-semibold">車體本體固定</span>
-            <p class="text-xs text-gray-500 mt-2">可繪製「加速度 a」對「砝碼質量 F」關係圖</p>
-        </label>
+                <!-- 控制變因 2: 滑車質量 -->
+                <label id="label-ctrl-cart" onclick="selectControlVar('cart')" class="flex flex-col items-center justify-center p-6 border-2 rounded-2xl cursor-pointer hover:bg-teal-50 hover:border-teal-400 transition-all border-gray-200 text-center shadow-sm">
+                    <input type="radio" name="control-variable" value="cart" class="hidden">
+                    <div class="text-4xl mb-3">🏎️</div>
+                    <span class="text-lg font-bold text-gray-800">滑車質量 (M) 固定</span>
+                    <span class="text-xs text-teal-700 bg-teal-100 px-2.5 py-1 rounded-full mt-2 border border-teal-200 font-semibold">車體本體固定</span>
+                    <p class="text-xs text-gray-500 mt-2">可繪製「加速度 a」對「砝碼質量 F」關係圖</p>
+                </label>
 
-        <!-- 控制變因 3: 滑車+砝碼質量 -->
-        <label id="label-ctrl-total" onclick="selectControlVar('total')" class="flex flex-col items-center justify-center p-6 border-2 rounded-2xl cursor-pointer hover:bg-teal-50 hover:border-teal-400 transition-all border-gray-200 text-center shadow-sm">
-            <input type="radio" name="control-variable" value="total" class="hidden">
-            <div class="text-4xl mb-3">📦</div>
-            <span class="text-lg font-bold text-gray-800">(滑車+砝碼)質量 (m) 固定</span>
-            <span class="text-xs text-teal-700 bg-teal-100 px-2.5 py-1 rounded-full mt-2 border border-teal-200 font-semibold">系統總質量固定</span>
-            <p class="text-xs text-gray-500 mt-2">可繪製「加速度 a」對「砝碼質量 F」關係圖</p>
-        </label>
-    </div>
+                <!-- 控制變因 3: 滑車+砝碼質量 -->
+                <label id="label-ctrl-total" onclick="selectControlVar('total')" class="flex flex-col items-center justify-center p-6 border-2 rounded-2xl cursor-pointer hover:bg-teal-50 hover:border-teal-400 transition-all border-gray-200 text-center shadow-sm">
+                    <input type="radio" name="control-variable" value="total" class="hidden">
+                    <div class="text-4xl mb-3">📦</div>
+                    <span class="text-lg font-bold text-gray-800">(滑車+砝碼)質量 (m) 固定</span>
+                    <span class="text-xs text-teal-700 bg-teal-100 px-2.5 py-1 rounded-full mt-2 border border-teal-200 font-semibold">系統總質量固定</span>
+                    <p class="text-xs text-gray-500 mt-2">可繪製「加速度 a」對「砝碼質量 F」關係圖</p>
+                </label>
+            </div>
 
             <div class="flex justify-end items-center pt-4 border-t border-gray-100">
                 <button onclick="processStep1()" class="bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-8 rounded-xl shadow-md transition duration-200 flex items-center">
@@ -396,7 +402,7 @@
 
 <!-- Jay's Lab 專屬簽名檔 -->
 <div style="text-align: right; margin-top: 40px; padding-bottom: 20px; font-size: 0.9em; color: #666; max-width: 1024px; width: 100%;">
-    by Jay`s Lab 紅樓老頭子 系統版本：v2.0
+    by Jay`s Lab 紅樓老頭子 系統版本：v2.1
 </div>
 
 <script>
@@ -434,7 +440,7 @@
         ]
     };
 
-    // 依控制變因定義關係圖清單（所有「重量」更新為「質量」，單位由 gw 更新為 kg）
+    // 依控制變因定義關係圖清單
     const chartDefinitions = {
         'weight': [
             {
@@ -498,7 +504,7 @@
         ]
     };
 
-    // 自訂對話框系統（取代標準 alert, confirm, prompt）
+    // 自訂對話框系統
     function openModal({ title, message, showInput = false, inputDefault = '', onConfirm = null }) {
         const modal = document.getElementById('custom-modal');
         const modalTitle = document.getElementById('modal-title');
@@ -665,63 +671,51 @@
         fInput.focus();
     }
 
-    // 智慧型多欄位數值解析器（自動適應：完整含 m 欄位、含次數欄位或純 3 欄數據）
     function parseNumericRow(numbers) {
         if (!numbers || numbers.length < 3) return null;
 
         let fVal, mVal, totalM, aVal;
 
         if (numbers.length === 3) {
-            // 標準 3 欄: [F, M, a]
             fVal = numbers[0];
             mVal = numbers[1];
             totalM = parseFloat((fVal + mVal).toFixed(2));
             aVal = numbers[2];
         } else if (numbers.length === 4) {
-            // 情況 1: [F, M, m, a] (完整 4 欄無次數)
-            // 情況 2: [次數, F, M, a] (帶次數之 3 欄數據)
             const sum01 = numbers[0] + numbers[1];
             const sum12 = numbers[1] + numbers[2];
 
             if (Math.abs(sum01 - numbers[2]) < 0.05 * sum01) {
-                // 研判為 F=nums[0], M=nums[1], m=nums[2], a=nums[3]
                 fVal = numbers[0];
                 mVal = numbers[1];
                 totalM = numbers[2];
                 aVal = numbers[3];
             } else if (Math.abs(sum12 - numbers[3]) < 0.05 * sum12) {
-                // 研判為 次數=nums[0], F=nums[1], M=nums[2], a=nums[3] (nums[3]不是m，若合則推斷)
                 fVal = numbers[1];
                 mVal = numbers[2];
                 totalM = parseFloat((fVal + mVal).toFixed(2));
                 aVal = numbers[3];
             } else {
-                // 預設為 [F, M, m, a]
                 fVal = numbers[0];
                 mVal = numbers[1];
                 totalM = numbers[2];
                 aVal = numbers[3];
             }
         } else {
-            // 5 欄以上 (常見於完整試算表: [次數, F, M, m, a] 或附加欄位)
-            // 嘗試檢視 nums[1] + nums[2] 是否等於 nums[3]
             const sum12 = numbers[1] + numbers[2];
             const sum01 = numbers[0] + numbers[1];
 
             if (Math.abs(sum12 - numbers[3]) < 0.05 * sum12) {
-                // 次數, F, M, m, a
                 fVal = numbers[1];
                 mVal = numbers[2];
                 totalM = numbers[3];
                 aVal = numbers[4];
             } else if (Math.abs(sum01 - numbers[2]) < 0.05 * sum01) {
-                // F, M, m, a, ...
                 fVal = numbers[0];
                 mVal = numbers[1];
                 totalM = numbers[2];
                 aVal = numbers[3];
             } else {
-                // 備用對應: 取 nums[1], nums[2], nums[3], nums[4]
                 fVal = numbers[1];
                 mVal = numbers[2];
                 totalM = numbers[3] || parseFloat((fVal + mVal).toFixed(2));
@@ -754,7 +748,6 @@
         lines.forEach(line => {
             const cleaned = line.replace(/,/g, ' ').replace(/\t/g, ' ').trim();
             if (!cleaned) return;
-            // 排除純中文或純字元標題列
             const nums = (cleaned.match(/[-+]?[0-9]*\.?[0-9]+/g) || []).map(v => parseFloat(v)).filter(v => !isNaN(v));
             const parsed = parseNumericRow(nums);
             if (parsed) {
@@ -770,7 +763,7 @@
         });
 
         if (successCount === 0) {
-            showDataError('未能成功解析數據，請確保輸入文字含有數值欄位（支援 3~5 欄已計算或未計算之完整格式）。');
+            showDataError('未能成功解析數據，請確保輸入文字含有數值欄位。');
             return;
         }
 
@@ -796,7 +789,6 @@
                 let successCount = 0;
                 let headerMapping = null;
 
-                // 第一階段：檢查前幾列是否為文字標題列（智慧尋找欄位位置，相容質量與重量、kg與gw）
                 for (let r = 0; r < Math.min(jsonRows.length, 5); r++) {
                     const row = jsonRows[r];
                     if (Array.isArray(row)) {
@@ -806,7 +798,6 @@
                         const hasA = rowStr.includes('加速度') || rowStr.includes('a');
                         
                         if (hasF && hasA) {
-                            // 標題列識別出關鍵字，建立欄位映射
                             headerMapping = { fCol: -1, mCol: -1, totalCol: -1, aCol: -1, headerRowIndex: r };
                             row.forEach((cell, cIdx) => {
                                 const str = String(cell || '').trim();
@@ -825,13 +816,11 @@
                     }
                 }
 
-                // 第二階段：依映射或智慧型數字判別解析資料列
                 jsonRows.forEach((row, rowIndex) => {
                     if (!Array.isArray(row)) return;
-                    if (headerMapping && rowIndex <= headerMapping.headerRowIndex) return; // 略過標題列
+                    if (headerMapping && rowIndex <= headerMapping.headerRowIndex) return;
 
                     if (headerMapping && headerMapping.fCol >= 0 && headerMapping.mCol >= 0 && headerMapping.aCol >= 0) {
-                        // 依標題欄位精準抓取
                         const fVal = parseFloat(row[headerMapping.fCol]);
                         const mVal = parseFloat(row[headerMapping.mCol]);
                         const aVal = parseFloat(row[headerMapping.aCol]);
@@ -851,7 +840,6 @@
                         }
                     }
 
-                    // 無標題或欄位未完全吻合時，啟用通用純數值自適應解析
                     const nums = row.map(v => parseFloat(v)).filter(v => !isNaN(v));
                     const parsed = parseNumericRow(nums);
                     if (parsed) {
@@ -870,7 +858,7 @@
                     reindexData();
                     renderDataTable();
                 } else {
-                    showDataError('Excel/CSV 檔案中未發現有效數據列（支援 3~5 欄已計算或未計算之完整格式）。');
+                    showDataError('Excel/CSV 檔案中未發現有效數據列。');
                 }
             } catch (err) {
                 showDataError('解析檔案失敗，請確認檔案格式是否正確。');
@@ -975,16 +963,13 @@
         }
     }
 
-    /* 物理專屬迴歸運算引擎：依據不同關係圖的物理定律擬合適配曲線 */
     function calculatePhysicsRegression(chartKey, points) {
         const n = points.length;
         if (n < 2) return null;
 
-        // 計算 Y 平均值以計算 R^2
         const meanY = points.reduce((acc, p) => acc + p.y, 0) / n;
         const ssTot = points.reduce((acc, p) => acc + Math.pow(p.y - meanY, 2), 0);
 
-        // 取出控制變因之平均值作為模型物理常數 (如固定之 F 或 M)
         const avgF = rawExperimentData.reduce((acc, d) => acc + d.f, 0) / n;
         const avgM = rawExperimentData.reduce((acc, d) => acc + d.M, 0) / n;
 
@@ -992,7 +977,6 @@
         let curvePredictor = null;
 
         if (chartKey === 'a_vs_m') {
-            // 模型 1：反比雙曲線 a = k / m (即 y = k / x)
             let sumYu = 0, sumU2 = 0;
             points.forEach(p => {
                 const u = 1 / p.x;
@@ -1001,9 +985,8 @@
             });
             const k = sumU2 > 0 ? (sumYu / sumU2) : 0;
             curvePredictor = (x) => (x > 0 ? k / x : 0);
-            eqText = `反比曲線方程式：a = ${k.toFixed(2)} / m  (即 y = ${k.toFixed(2)} / x)`;
+            eqText = `反比曲線方程式：a = ${k.toFixed(2)} / m`;
 
-            // 計算判定係數 R^2
             let ssRes = 0;
             points.forEach(p => {
                 const yPred = curvePredictor(p.x);
@@ -1019,7 +1002,6 @@
             };
 
         } else if (chartKey === 'a_vs_M') {
-            // 模型 2：位移反比曲線 a = k / (M + F)
             const F_const = avgF;
             let sumYu = 0, sumU2 = 0;
             points.forEach(p => {
@@ -1032,13 +1014,10 @@
             eqText = `理論曲線方程式：a = ${k.toFixed(2)} / (M + ${F_const.toFixed(1)})`;
 
         } else if (chartKey === 'a_vs_invM') {
-            // 模型 2.5：a 對 1/M 非線性曲線（非正比直線！）
-            // 物理本質：a = (k * (1/M)) / (1 + F * (1/M)) = (k * x) / (1 + F * x)
-            // 當 1/M 變大時，因吊掛砝碼質量不可忽略，曲線會明顯向下彎曲並趨近於 g
             const F_const = avgF;
             let sumYu = 0, sumU2 = 0;
             points.forEach(p => {
-                const u = p.x / (1 + F_const * p.x); // 即 1 / (M + F)
+                const u = p.x / (1 + F_const * p.x); 
                 sumYu += p.y * u;
                 sumU2 += u * u;
             });
@@ -1047,7 +1026,6 @@
             eqText = `非線性理論曲線：a = (${k.toFixed(2)} × x) / (1 + ${F_const.toFixed(1)}x)  [x = 1/M]`;
 
         } else if (chartKey === 'a_vs_F_cart') {
-            // 模型 3：M 固定時，a = g * F / (M + F) 漸近飽和曲線
             const M_const = avgM;
             let sumYu = 0, sumU2 = 0;
             points.forEach(p => {
@@ -1060,7 +1038,6 @@
             eqText = `漸近飽和曲線方程式：a = (${gEff.toFixed(2)} × F) / (${M_const.toFixed(1)} + F)`;
 
         } else {
-            // 模型 4：標準線性迴歸 y = mx + b (僅適用於 a 對 1/m 以及 總重m固定時的 a 對 F)
             let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
             points.forEach(p => {
                 sumX += p.x;
@@ -1081,7 +1058,6 @@
             eqText = `線性斜直線方程式：y = ${mStr}x ${sign} ${bStr}`;
         }
 
-        // 計算統一判定係數 R^2
         let ssRes = 0;
         points.forEach(p => {
             const yPred = curvePredictor(p.x);
@@ -1096,7 +1072,6 @@
         };
     }
 
-    /* 切換迴歸線顯示狀態 */
     function toggleRegression() {
         showRegressionLine = !showRegressionLine;
         updateRegressionUI();
@@ -1104,7 +1079,7 @@
             selectAndRenderChart(activeChartKey);
         }
     }
-    /* 更新迴歸線按鈕外觀與狀態 */
+
     function updateRegressionUI() {
         const btn = document.getElementById('regression-toggle-btn');
         const eqDiv = document.getElementById('regression-equation-text');
@@ -1138,7 +1113,6 @@
         const currentDef = charts.find(c => c.key === chartKey);
         if (!currentDef) return;
 
-        // 純描點資料點
         const scatterPoints = rawExperimentData.map(d => ({
             x: currentDef.calcX(d),
             y: currentDef.calcY(d)
@@ -1148,7 +1122,6 @@
         const maxX = Math.max(...scatterPoints.map(p => p.x));
         const maxY = Math.max(...scatterPoints.map(p => p.y));
 
-        // 計算符合物理規律的專屬迴歸模型
         const regression = calculatePhysicsRegression(chartKey, scatterPoints);
         let regressionLinePoints = [];
         currentEquationText = '';
@@ -1159,10 +1132,8 @@
             const targetMaxY = maxY * 1.25;
 
             if (regression.isNonLinear) {
-                // 非線性曲線（如反比或漸近線）：取 80 個高密度插值點繪製絲滑平滑曲線
                 let startX = 0;
                 if (chartKey === 'a_vs_m') {
-                    // 根據物理反比方程式與 Y 軸上限動態求出起點，徹底擺脫死板硬常數限制
                     const k = regression.kVal || (minX * maxY);
                     const xAtCeil = targetMaxY > 0 ? (k / targetMaxY) : (minX * 0.5);
                     startX = Math.max(Math.min(minX * 0.8, xAtCeil), 0.001);
@@ -1176,7 +1147,6 @@
                     }
                 }
             } else {
-                // 線性斜直線：取起點 (0) 與終點
                 regressionLinePoints = [
                     { x: 0, y: parseFloat(regression.predict(0).toFixed(4)) },
                     { x: plotMaxX, y: parseFloat(regression.predict(plotMaxX).toFixed(4)) }
@@ -1200,7 +1170,6 @@
             }
         ];
 
-        // 若開啟迴歸線則加入虛線 Dataset
         if (showRegressionLine && regressionLinePoints.length > 0) {
             datasets.push({
                 type: 'line',
@@ -1212,7 +1181,7 @@
                 fill: false,
                 pointRadius: 0,
                 showLine: true,
-                tension: 0.15 // 確保非線性曲線平滑圓潤
+                tension: 0.15 
             });
         }
 
@@ -1276,7 +1245,6 @@
                 }
             },
             plugins: [{
-                // 確保匯出 PNG 圖檔時為乾淨白色背景
                 id: 'customWhiteBackground',
                 beforeDraw: (chart) => {
                     const { ctx } = chart;
@@ -1349,7 +1317,6 @@
             document.getElementById('pdf-chart-preview').src = currentChartInstance.toBase64Image('image/png', 1.0);
         }
 
-        // 同步在 PDF 報告中顯示迴歸方程式
         const pdfEq = document.getElementById('pdf-regression-eq');
         if (showRegressionLine && currentEquationText) {
             pdfEq.textContent = currentEquationText;
@@ -1360,6 +1327,11 @@
 
         const userConclusion = document.getElementById('user-conclusion-input').value.trim();
         document.getElementById('pdf-conclusion-content').textContent = userConclusion || '（未填寫結論內容）';
+    }
+
+    // 檢查是否為行動裝置 (特別針對 iPad/iPhone)
+    function isMobileDevice() {
+        return (typeof window.orientation !== "undefined") || (navigator.userAgent.indexOf('IEMobile') !== -1) || (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent) && 'ontouchend' in document);
     }
 
     function openExportModal() {
@@ -1373,21 +1345,77 @@
                 currentStudentName = finalName;
                 document.getElementById('pdf-student-name').textContent = finalName;
 
-                const ctrlName = getControlVarChineseName(controlVarType).replace(/[()]/g, '');
-                const pdfFileName = `${ctrlName}+${finalName}.pdf`;
-                const element = document.getElementById('pdf-report-document');
-
-                const opt = {
-                    margin: [10, 10, 10, 10],
-                    filename: pdfFileName,
-                    image: { type: 'jpeg', quality: 0.98 },
-                    html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
-                    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-                };
-
-                html2pdf().set(opt).from(element).save();
+                executePdfExport(finalName);
             }
         });
+    }
+
+    // 執行 PDF 產生與匯出核心邏輯
+    async function executePdfExport(studentName) {
+        const ctrlName = getControlVarChineseName(controlVarType).replace(/[()]/g, '');
+        const pdfFileName = `${ctrlName}_${studentName}.pdf`;
+        const element = document.getElementById('pdf-report-document');
+        const loadingOverlay = document.getElementById('loading-overlay');
+
+        const opt = {
+            margin: [10, 10, 10, 10],
+            filename: pdfFileName,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+
+        const isMobile = isMobileDevice();
+
+        // 若是行動裝置，且支援 Web Share API，則改用 Blob 方式產生並分享
+        if (isMobile && navigator.canShare) {
+            try {
+                // 顯示載入中遮罩
+                loadingOverlay.classList.remove('hidden');
+                loadingOverlay.classList.add('flex');
+
+                // 產生 PDF Blob
+                const pdfBlob = await html2pdf().set(opt).from(element).outputPdf('blob');
+                
+                // 建立 File 物件以供分享
+                const file = new File([pdfBlob], pdfFileName, { type: 'application/pdf' });
+                
+                const shareData = {
+                    title: '滑車實驗報告',
+                    text: '請選擇「儲存到檔案」以決定存放位置。',
+                    files: [file]
+                };
+
+                // 檢查是否可以分享該檔案
+                if (navigator.canShare(shareData)) {
+                    // 隱藏載入中遮罩，因為要跳出系統選單了
+                    loadingOverlay.classList.add('hidden');
+                    loadingOverlay.classList.remove('flex');
+                    
+                    await navigator.share(shareData);
+                    console.log('分享成功');
+                } else {
+                    throw new Error('瀏覽器不支援分享此檔案類型');
+                }
+            } catch (err) {
+                console.error('分享失敗或取消:', err);
+                // 隱藏載入中遮罩
+                loadingOverlay.classList.add('hidden');
+                loadingOverlay.classList.remove('flex');
+
+                // 若分享失敗 (例如使用者取消，或是發生不可預期的錯誤)，則退回直接下載模式
+                if (err.name !== 'AbortError') {
+                    openModal({
+                        title: '分享功能無法使用',
+                        message: '系統無法喚起分享選單，將改為直接下載。\n若無法選擇路徑，請至 Safari 設定調整下載位置。'
+                    });
+                    html2pdf().set(opt).from(element).save();
+                }
+            }
+        } else {
+            // 桌機版或不支援分享 API 的裝置，維持原有的直接下載
+            html2pdf().set(opt).from(element).save();
+        }
     }
 
     function promptResetExperiment() {
